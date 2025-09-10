@@ -9,10 +9,11 @@ import java.util.List;
 public record UserDTO(
         String id,
         String email,
-        Long telegramId,
+        Long telegramChatId,
         FullName name,
         User.Gender gender,
         List<Role> roles,
+        String role,
         Boolean isApproved,
         String group
 ) {

@@ -11,12 +11,19 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/manager")
 @RequiredArgsConstructor
 public class ManagerController {
 
     private final EventService eventService;
+
+    @GetMapping("/events")
+    public ResponseEntity<List<EventDTO>> getCompanyEvents(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(eventService.getEventsByCompany(user));
+    }
 
     @PostMapping("/event/create")
     public ResponseEntity<EventDTO> createEvent(

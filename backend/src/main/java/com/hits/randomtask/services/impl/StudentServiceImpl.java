@@ -22,7 +22,7 @@ public class StudentServiceImpl implements StudentService {
 
     @Override
     public void registerToEvent(String eventId, User user) {
-        if (eventRegistrationRepository.existsByEventIdAndStudentId(eventId, user.getId())) {
+        if (eventRegistrationRepository.existsByEventIdAndUserId(eventId, user.getId())) {
             throw new BadRequestException("Student is already registered for this event");
         }
 
@@ -43,7 +43,7 @@ public class StudentServiceImpl implements StudentService {
 
     @Override
     public void unregisterFromEvent(String eventId, User user) {
-        if (!eventRegistrationRepository.existsByEventIdAndStudentId(eventId, user.getId())) {
+        if (!eventRegistrationRepository.existsByEventIdAndUserId(eventId, user.getId())) {
             throw new BadRequestException("Student is not registered for this event");
         }
 
@@ -55,6 +55,6 @@ public class StudentServiceImpl implements StudentService {
             throw new BadRequestException("Cannot unregister from an event that has already occurred");
         }
 
-        eventRegistrationRepository.deleteByEventIdAndStudentId(eventId, user.getId());
+        eventRegistrationRepository.deleteByEventIdAndUserId(eventId, user.getId());
     }
 }

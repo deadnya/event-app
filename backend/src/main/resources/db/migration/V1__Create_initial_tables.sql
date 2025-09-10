@@ -36,16 +36,6 @@ CREATE TABLE users_roles (
     CONSTRAINT fk_users_roles_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
 );
 
-CREATE TABLE tokens (
-    id VARCHAR(32) PRIMARY KEY,
-    access_token VARCHAR(512) UNIQUE,
-    refresh_token VARCHAR(512) UNIQUE,
-    is_logged_out BOOLEAN DEFAULT FALSE,
-    user_id VARCHAR(32),
-    expiration_date TIMESTAMP,
-    CONSTRAINT fk_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
 CREATE TABLE events (
     id VARCHAR(32) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -60,10 +50,21 @@ CREATE TABLE event_registrations (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(32) NOT NULL,
     event_id VARCHAR(32) NOT NULL,
-    registered_at TIMESTAMP NOT NULL,
+    registered_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     google_event_id VARCHAR(255),
     CONSTRAINT fk_event_registrations_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_event_registrations_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+    CONSTRAINT fk_event_registrations_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+    UNIQUE(user_id, event_id)
+);
+
+CREATE TABLE tokens (
+    id VARCHAR(32) PRIMARY KEY,
+    access_token VARCHAR(512) UNIQUE,
+    refresh_token VARCHAR(512) UNIQUE,
+    is_logged_out BOOLEAN DEFAULT FALSE,
+    user_id VARCHAR(32),
+    expiration_date TIMESTAMP,
+    CONSTRAINT fk_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_users_email ON users(email);

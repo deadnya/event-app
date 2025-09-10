@@ -12,6 +12,7 @@ public interface EventService {
     EventDTO getEventById(String eventId, User user);
     EventDTO getEventById(String eventId);
     List<EventDTO> getAllEvents();
+    List<EventDTO> getEventsByCompany(User user);
     void deleteEvent(String eventId, User user);
     EventDTO editEvent(EditEventDTO editEventDTO, User user);
 }

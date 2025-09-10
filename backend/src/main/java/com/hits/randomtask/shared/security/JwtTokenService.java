@@ -9,6 +9,8 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -23,6 +25,8 @@ import java.util.function.Function;
 @Component
 @RequiredArgsConstructor
 public class JwtTokenService {
+
+    private static final Logger logger = LoggerFactory.getLogger(JwtTokenService.class);
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -45,9 +49,19 @@ public class JwtTokenService {
     }
 
     private String generateToken(User user, long expireTime) {
+        String primaryRole = user.getRoles().stream()
+                .findFirst()
+                .map(role -> role.getRole().name())
+                .orElse("UNKNOWN");
+        
+        String subject = user.getEmail() != null ? user.getEmail() : String.valueOf(user.getTelegramChatId());
+        
         return Jwts
                 .builder()
-                .subject(user.getUsername())
+                .subject(subject)
+                .claim("role", primaryRole)
+                .claim("telegramId", user.getTelegramChatId())
+                .claim("userId", user.getId())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + expireTime ))
                 .signWith(getSigningKey())
@@ -74,13 +88,25 @@ public class JwtTokenService {
 
     public boolean isValid(String token, UserDetails user) {
         String username = extractUsername(token);
+        logger.info("Validating token for user: {}", username);
 
         boolean validToken = tokenRepository
                 .findByAccessToken(token)
-                .map(t -> !t.isLoggedOut())
+                .map(t -> {
+                    logger.info("Token found in DB, loggedOut: {}", t.isLoggedOut());
+                    return !t.isLoggedOut();
+                })
                 .orElse(false);
 
-        return (username.equals(user.getUsername())) && isTokenExpired(token) && validToken;
+        boolean expired = isTokenExpired(token);
+        logger.info("Token expired: {}", expired);
+        logger.info("Username matches: {}", username.equals(user.getUsername()));
+        logger.info("Token valid in DB: {}", validToken);
+
+        boolean result = (username.equals(user.getUsername())) && !expired && validToken;
+        logger.info("Final validation result: {}", result);
+        
+        return result;
     }
 
     public boolean isValidRefreshToken(String token, User user) {
@@ -91,11 +117,16 @@ public class JwtTokenService {
                 .map(t -> !t.isLoggedOut())
                 .orElse(false);
 
-        return (username.equals(user.getUsername())) && isTokenExpired(token) && validRefreshToken;
+        return (username.equals(user.getUsername())) && !isTokenExpired(token) && validRefreshToken;
     }
 
     private boolean isTokenExpired(String token) {
-        return !extractExpiration(token).before(new Date());
+        Date expiration = extractExpiration(token);
+        Date now = new Date();
+        boolean expired = expiration.before(now);
+        logger.info("Token expiration check - expires at: {}, current time: {}, expired: {}", 
+                   expiration, now, expired);
+        return expired;
     }
 
     private Date extractExpiration(String token) {

@@ -24,6 +24,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 import java.util.Set;
@@ -95,10 +96,10 @@ public class AuthServiceImpl implements AuthService {
             authData.put("auth_date", request.authDate().toString());
             authData.put("first_name", request.firstName());
             authData.put("id", request.id().toString());
-            if (request.lastName() != null) {
+            if (request.lastName() != null && !request.lastName().isEmpty()) {
                 authData.put("last_name", request.lastName());
             }
-            if (request.username() != null) {
+            if (request.username() != null && !request.username().isEmpty()) {
                 authData.put("username", request.username());
             }
 
@@ -112,11 +113,11 @@ public class AuthServiceImpl implements AuthService {
                         dataCheckString.append(entry.getKey()).append("=").append(entry.getValue());
                     });
 
+            MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+            byte[] secretKeyBytes = sha256.digest(telegramBotToken.getBytes(StandardCharsets.UTF_8));
+
             Mac mac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec secretKey = new SecretKeySpec(
-                    telegramBotToken.getBytes(StandardCharsets.UTF_8),
-                    "HmacSHA256"
-            );
+            SecretKeySpec secretKey = new SecretKeySpec(secretKeyBytes, "HmacSHA256");
             mac.init(secretKey);
             byte[] hashBytes = mac.doFinal(dataCheckString.toString().getBytes(StandardCharsets.UTF_8));
 
@@ -149,10 +150,14 @@ public class AuthServiceImpl implements AuthService {
 
     private AuthResponseDTO issueAccessToken(User user) {
         String accessToken = jwtTokenService.generateAccessToken(user);
+        
+        jwtTokenService.revokeAllTokens(user);
+        String refreshToken = jwtTokenService.generateRefreshToken(user);
+        jwtTokenService.saveToken(user, accessToken, refreshToken);
 
         return new AuthResponseDTO(
                 accessToken,
-                null
+                refreshToken
         );
     }
 }

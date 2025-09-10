@@ -47,13 +47,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             String token = authHeader.substring(7);
+            logger.info("Processing JWT token: {}...", token.substring(0, Math.min(50, token.length())));
+            
             String username = jwtTokenService.extractUsername(token);
+            logger.info("Extracted username from token: {}", username);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                logger.info("Username found and no existing authentication, proceeding with validation");
 
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                logger.info("Loaded user details for: {}", username);
 
-                if (jwtTokenService.isValid(token, userDetails)) {
+                boolean isTokenValid = jwtTokenService.isValid(token, userDetails);
+                logger.info("Token validation result: {}", isTokenValid);
+                
+                if (isTokenValid) {
+                    logger.info("Token is valid, setting authentication context");
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,
@@ -66,7 +75,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
 
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                    logger.info("Authentication context set successfully");
+                } else {
+                    logger.warn("Token validation failed for user: {}", username);
                 }
+            } else {
+                logger.info("Skipping token validation - username: {}, existing auth: {}", 
+                    username, SecurityContextHolder.getContext().getAuthentication() != null);
             }
 
             filterChain.doFilter(request, response);

@@ -33,6 +33,15 @@ public class EventServiceImpl implements EventService {
     }
 
     @Override
+    public List<EventDTO> getEventsByCompany(User user) {
+        Company company = user.getCompany();
+        if (company == null) throw new NotFoundException("User is not associated with any company");
+        
+        List<Event> events = eventRepository.findByCompanyId(company.getId());
+        return events.stream().map(eventMapper::toDTO).toList();
+    }
+
+    @Override
     public EventDTO createEvent(CreateEventDTO createEventDTO, User user) {
 
         Company company = user.getCompany();

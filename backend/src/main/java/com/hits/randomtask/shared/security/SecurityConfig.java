@@ -40,7 +40,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/refresh",
-                                "/api/auth/register-telegram"
+                                "/api/auth/register-telegram",
+                                "/api/auth/telegram-login"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/users/telegram/**",
