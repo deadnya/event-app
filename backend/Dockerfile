@@ -4,7 +4,6 @@ WORKDIR /app
 
 COPY pom.xml ./
 
-# Download dependencies and plugins (this layer will be cached unless pom.xml changes)
 RUN mvn dependency:resolve dependency:resolve-sources dependency:resolve-plugins -B
 
 COPY src ./src

@@ -46,15 +46,16 @@ public class SecurityConfig {
                                 "/api/users/telegram/**",
                                 "/api/company/all"
                         ).permitAll()
-                        .requestMatchers(
-                                "/employee"
-                        ).hasAuthority("ADMIN")
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/swagger-ui/**").permitAll()
                         .requestMatchers("/v3/api-docs/**").permitAll()
                         .requestMatchers("/swagger-resources/**").permitAll()
                         .requestMatchers("/webjars/**").permitAll()
-                        .anyRequest().authenticated()
+
+                        .requestMatchers("/api/admin/**").hasAuthority("ADMIN")
+                        .requestMatchers("/api/manager/**").hasAnyAuthority("ADMIN", "MANAGER")
+                        .requestMatchers("/api/student/**").hasAnyAuthority("ADMIN", "STUDENT")
+                        .anyRequest().hasAuthority("ADMIN")
                 )
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

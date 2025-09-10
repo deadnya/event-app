@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -27,6 +28,7 @@ public class EventRegistration {
     private Event event;
 
     @Column(name = "registered_at", nullable = false)
+    @CreationTimestamp
     private LocalDateTime registeredAt;
 
     @Column(name = "google_event_id")

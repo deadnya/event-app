@@ -1,0 +1,53 @@
+package com.hits.randomtask.controllers;
+
+import com.hits.randomtask.dtos.CreateEventDTO;
+import com.hits.randomtask.dtos.EditEventDTO;
+import com.hits.randomtask.dtos.EventDTO;
+import com.hits.randomtask.entities.User;
+import com.hits.randomtask.services.EventService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/manager")
+@RequiredArgsConstructor
+public class ManagerController {
+
+    private final EventService eventService;
+
+    @PostMapping("/event/create")
+    public ResponseEntity<EventDTO> createEvent(
+            @Valid @RequestBody CreateEventDTO createEventDTO,
+            @AuthenticationPrincipal User user
+    ) {
+        return ResponseEntity.ok(eventService.createEvent(createEventDTO, user));
+    }
+
+    @GetMapping("/event/{id}")
+    public ResponseEntity<EventDTO> getEvent(
+            @PathVariable String id,
+            @AuthenticationPrincipal User user
+    ) {
+        return ResponseEntity.ok(eventService.getEventById(id, user));
+    }
+
+    @PutMapping("/event/edit")
+    public ResponseEntity<EventDTO> editEvent(
+            @Valid @RequestBody EditEventDTO editEventDTO,
+            @AuthenticationPrincipal User user
+    ) {
+        return ResponseEntity.ok(eventService.editEvent(editEventDTO, user));
+    }
+
+    @DeleteMapping("/event/{id}")
+    public ResponseEntity<Void> deleteEvent(
+            @PathVariable String id,
+            @AuthenticationPrincipal User user
+    ) {
+        eventService.deleteEvent(id, user);
+        return ResponseEntity.ok().build();
+    }
+}

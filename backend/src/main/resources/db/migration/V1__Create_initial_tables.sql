@@ -1,16 +1,13 @@
--- Create companies table
 CREATE TABLE companies (
     id VARCHAR(32) PRIMARY KEY,
     name VARCHAR(255) NOT NULL
 );
 
--- Create roles table
 CREATE TABLE roles (
     id VARCHAR(32) PRIMARY KEY,
     role VARCHAR(50) UNIQUE NOT NULL
 );
 
--- Create users table
 CREATE TABLE users (
     id VARCHAR(32) PRIMARY KEY,
     gender VARCHAR(10),
@@ -31,7 +28,6 @@ CREATE TABLE users (
     CONSTRAINT fk_users_company FOREIGN KEY (company_id) REFERENCES companies(id)
 );
 
--- Create users_roles junction table
 CREATE TABLE users_roles (
     user_id VARCHAR(32) NOT NULL,
     role_id VARCHAR(32) NOT NULL,
@@ -40,7 +36,6 @@ CREATE TABLE users_roles (
     CONSTRAINT fk_users_roles_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
 );
 
--- Create tokens table
 CREATE TABLE tokens (
     id VARCHAR(32) PRIMARY KEY,
     access_token VARCHAR(512) UNIQUE,
@@ -51,7 +46,6 @@ CREATE TABLE tokens (
     CONSTRAINT fk_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- Create events table
 CREATE TABLE events (
     id VARCHAR(32) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -62,7 +56,6 @@ CREATE TABLE events (
     CONSTRAINT fk_events_company FOREIGN KEY (company_id) REFERENCES companies(id)
 );
 
--- Create event_registrations table
 CREATE TABLE event_registrations (
     id BIGSERIAL PRIMARY KEY,
     user_id VARCHAR(32) NOT NULL,
@@ -73,7 +66,6 @@ CREATE TABLE event_registrations (
     CONSTRAINT fk_event_registrations_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
 );
 
--- Create indexes for better performance
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_telegram_chat_id ON users(telegram_chat_id);
 CREATE INDEX idx_users_company_id ON users(company_id);

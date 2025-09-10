@@ -2,6 +2,7 @@ package com.hits.randomtask.shared.exceptions;
 
 import com.hits.randomtask.dtos.ErrorDTO;
 import com.hits.randomtask.shared.exceptions.custom.BadRequestException;
+import com.hits.randomtask.shared.exceptions.custom.ForbiddenException;
 import com.hits.randomtask.shared.exceptions.custom.NotFoundException;
 import jakarta.security.auth.message.AuthException;
 import org.springframework.http.HttpStatus;
@@ -60,5 +61,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(new ErrorDTO(HttpStatus.NOT_FOUND.value(), List.of(ex.getMessage())));
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorDTO> handleForbiddenException(ForbiddenException ex, WebRequest request) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(new ErrorDTO(HttpStatus.FORBIDDEN.value(), List.of(ex.getMessage())));
     }
 }
