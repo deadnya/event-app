@@ -138,4 +138,31 @@ export default class ApiRequests {
     static async getPendingUsers(): Promise<AxiosResponse<UserDTO[]>> {
         return $api.get<UserDTO[]>("/admin/users/pending");
     }
+
+    static async getGoogleCalendarAuthUrl(): Promise<AxiosResponse<{ authUrl?: string; error?: string }>> {
+        return $api.get<{ authUrl?: string; error?: string }>("/google-calendar/auth-url");
+    }
+
+    static async handleGoogleCalendarCallback(code: string, state?: string): Promise<AxiosResponse<{ message: string }>> {
+        const params: any = { code };
+        if (state) {
+            params.state = state;
+        }
+        return $api.post<{ message: string }>("/google-calendar/callback", null, { params });
+    }
+
+    static async disconnectGoogleCalendar(): Promise<AxiosResponse<{ message: string }>> {
+        return $api.delete<{ message: string }>("/google-calendar/disconnect");
+    }
+
+    static async getGoogleCalendarStatus(): Promise<AxiosResponse<{ connected: boolean }>> {
+        return $api.get<{ connected: boolean }>("/google-calendar/status");
+    }
 }
+
+export const googleCalendarApi = {
+    getAuthUrl: () => ApiRequests.getGoogleCalendarAuthUrl(),
+    handleCallback: (code: string, state?: string) => ApiRequests.handleGoogleCalendarCallback(code, state),
+    disconnect: () => ApiRequests.disconnectGoogleCalendar(),
+    getStatus: () => ApiRequests.getGoogleCalendarStatus()
+};

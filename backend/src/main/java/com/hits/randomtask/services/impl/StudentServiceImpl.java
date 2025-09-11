@@ -8,6 +8,7 @@ import com.hits.randomtask.mappers.EventMapper;
 import com.hits.randomtask.repositories.EventRegistrationRepository;
 import com.hits.randomtask.repositories.EventRepository;
 import com.hits.randomtask.repositories.UserRepository;
+import com.hits.randomtask.services.GoogleCalendarService;
 import com.hits.randomtask.services.StudentService;
 import com.hits.randomtask.shared.exceptions.custom.BadRequestException;
 import com.hits.randomtask.shared.exceptions.custom.NotFoundException;
@@ -24,6 +25,7 @@ public class StudentServiceImpl implements StudentService {
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
     private final EventMapper eventMapper;
+    private final GoogleCalendarService googleCalendarService;
 
     @Override
     public void registerToEvent(String eventId, User user) {
@@ -47,6 +49,12 @@ public class StudentServiceImpl implements StudentService {
         eventRegistration.setEvent(event);
         eventRegistration.setUser(user);
 
+        // Create Google Calendar event if user has connected their calendar
+        if (googleCalendarService.isGoogleCalendarConnected(user)) {
+            String googleEventId = googleCalendarService.createCalendarEvent(event, user);
+            eventRegistration.setGoogleEventId(googleEventId);
+        }
+
         eventRegistrationRepository.save(eventRegistration);
     }
 
@@ -66,6 +74,19 @@ public class StudentServiceImpl implements StudentService {
 
         if (event.getRegistrationDeadline().isBefore(java.time.LocalDateTime.now())) {
             throw new BadRequestException("Registration deadline has passed, cannot unregister");
+        }
+
+        // Find the registration to get Google Event ID
+        List<EventRegistration> registrations = eventRegistrationRepository.findByUserId(user.getId());
+        EventRegistration registration = registrations.stream()
+                .filter(reg -> reg.getEvent().getId().equals(eventId))
+                .findFirst()
+                .orElse(null);
+
+        // Delete Google Calendar event if it exists
+        if (registration != null && registration.getGoogleEventId() != null && 
+            googleCalendarService.isGoogleCalendarConnected(user)) {
+            googleCalendarService.deleteCalendarEvent(registration.getGoogleEventId(), user);
         }
 
         eventRegistrationRepository.deleteByEventIdAndUserId(eventId, user.getId());

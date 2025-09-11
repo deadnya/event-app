@@ -58,6 +58,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/manager/**").hasAnyAuthority("ADMIN", "MANAGER")
                         .requestMatchers("/api/student/**").hasAnyAuthority("ADMIN", "STUDENT")
                         .requestMatchers("/api/users/edit").hasAnyAuthority("ADMIN", "MANAGER", "STUDENT")
+                        .requestMatchers("/api/users/profile").hasAnyAuthority("ADMIN", "MANAGER", "STUDENT")
+                        .requestMatchers("/api/google-calendar/**").hasAnyAuthority("ADMIN", "MANAGER", "STUDENT")
                         .anyRequest().hasAuthority("ADMIN")
                 )
                 .sessionManagement(session ->

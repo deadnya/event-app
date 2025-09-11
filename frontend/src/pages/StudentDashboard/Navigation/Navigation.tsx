@@ -6,8 +6,9 @@ const Navigation: React.FC = () => {
     const location = useLocation();
 
     const navItems = [
-        { path: '/student/events', label: 'All Events', icon: '📅' },
-        { path: '/student/my-events', label: 'My Events', icon: '⭐' },
+        { path: '/student/events', label: 'All Events' },
+        { path: '/student/my-events', label: 'My Events' },
+        { path: '/student/google-calendar', label: 'Google Calendar' },
     ];
 
     return (
@@ -22,7 +23,6 @@ const Navigation: React.FC = () => {
                                 location.pathname === item.path ? styles.active : ''
                             }`}
                         >
-                            <span className={styles.icon}>{item.icon}</span>
                             {item.label}
                         </Link>
                     </li>

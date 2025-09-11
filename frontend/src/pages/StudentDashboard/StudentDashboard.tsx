@@ -4,6 +4,7 @@ import Header from '../../components/Header/Header';
 import EventList from './EventList/EventList';
 import MyEvents from './MyEvents/MyEvents';
 import EventDetails from './EventDetails/EventDetails';
+import GoogleCalendar from './GoogleCalendar/GoogleCalendar';
 import Navigation from './Navigation/Navigation';
 import styles from './StudentDashboard.module.css';
 
@@ -19,6 +20,7 @@ const StudentDashboard: React.FC = () => {
                         <Route path="/events" element={<EventList />} />
                         <Route path="/my-events" element={<MyEvents />} />
                         <Route path="/event/:id" element={<EventDetails />} />
+                        <Route path="/google-calendar" element={<GoogleCalendar />} />
                     </Routes>
                 </main>
             </div>

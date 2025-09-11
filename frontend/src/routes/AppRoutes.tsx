@@ -6,6 +6,7 @@ import { useStore } from '../store/StoreContext';
 import LoginPage from '../pages/LoginPage/LoginPage';
 import AdminDashboard from '../pages/AdminDashboard/AdminDashboard';
 import StudentDashboard from '../pages/StudentDashboard/StudentDashboard';
+import GoogleCalendarCallback from '../pages/StudentDashboard/GoogleCalendarCallback/GoogleCalendarCallback';
 import ErrorPage from '../pages/ErrorPage/ErrorPage';
 import LoadingSpinner from '../components/LoadingSpinner/LoadingSpinner';
 
@@ -38,6 +39,7 @@ const AppRoutes: React.FC = observer(() => {
         return (
             <Routes>
                 <Route path="/student/*" element={<StudentDashboard />} />
+                <Route path="/google-calendar/callback" element={<GoogleCalendarCallback />} />
                 <Route path="*" element={<Navigate to="/student" replace />} />
             </Routes>
         );
