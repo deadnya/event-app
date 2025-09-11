@@ -39,6 +39,32 @@ class BaseHandler:
     async def is_user_authenticated(self, user_id: int) -> bool:
         return self.api_service.auth_service.is_user_logged_in(user_id)
     
+    async def require_authentication(self, update: Update) -> bool:
+        user_id = update.effective_user.id
+        
+        if not await self.is_user_authenticated(user_id):
+            await update.message.reply_text(
+                "🔐 You are not logged in. Please use /start to authenticate.",
+                parse_mode='HTML'
+            )
+            return False
+        
+        user_role = await self.check_user_role(user_id)
+        if user_role == 'UNREGISTERED':
+            self.api_service.auth_service.logout_user(user_id)
+            await update.message.reply_text(
+                "🚫 <b>Authentication Error</b>\n\n"
+                "Your account is no longer valid. This could happen if:\n"
+                "• Your account was deleted by an administrator\n"
+                "• Your registration was revoked\n\n"
+                "Please use /start to register again.",
+                parse_mode='HTML'
+            )
+            return False
+        
+        return True
+    
+    
     async def auto_authenticate_user(self, update: Update) -> bool:
         user_id = update.effective_user.id
         

@@ -28,6 +28,12 @@ class GeneralHandler(BaseHandler):
         
         user_id = update.effective_user.id
         
+        user_data = self.api_service.get_user_by_telegram_id(user_id)
+        
+        if await self.is_user_authenticated(user_id) and not user_data:
+            self.api_service.auth_service.logout_user(user_id)
+            logger.info(f"Cleared invalid tokens for deleted user {user_id}")
+        
         if await self.auto_authenticate_user(update):
             user_role = await self.check_user_role(user_id)
             keyboard = self.get_role_keyboard(user_role)
@@ -38,7 +44,6 @@ class GeneralHandler(BaseHandler):
                 f"Use the buttons below for quick access to your commands!"
             )
         else:
-            user_data = self.api_service.get_user_by_telegram_id(user_id)
             if user_data:
                 if user_data.get('isApproved'):
                     keyboard = self.get_role_keyboard(None)

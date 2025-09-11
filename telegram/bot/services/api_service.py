@@ -104,6 +104,14 @@ class APIService:
             
             response = requests.request(method, url, timeout=30, **kwargs)
             logger.info(f"Response received - Status: {response.status_code}")
+            
+            if response.status_code == 401:
+                logger.warning(f"Authentication failed for user {telegram_id}, clearing stored tokens")
+                self.auth_service.logout_user(telegram_id)
+                if response.status_code >= 400:
+                    logger.error(f"Error response body: {response.text}")
+                return response
+            
             if response.status_code >= 400:
                 logger.error(f"Error response body: {response.text}")
             
@@ -125,21 +133,30 @@ class APIService:
             return None
     
     def get_student_events(self, telegram_id: int) -> Optional[list]:
+        logger.info(f"Fetching registered events for student {telegram_id}")
         response = self._make_authenticated_request('GET', 'student/events', telegram_id)
         if response and response.status_code == 200:
-            return response.json()
+            events = response.json()
+            logger.info(f"Retrieved {len(events)} registered events for student {telegram_id}")
+            return events
+        logger.warning(f"Failed to get registered events for student {telegram_id}")
         return None
-    
-    def get_available_events(self, telegram_id: int) -> Optional[list]:
-        response = self._make_authenticated_request('GET', 'student/events/available', telegram_id)
+
+    def get_all_events(self, telegram_id: int) -> Optional[list]:
+        logger.info(f"Fetching all events for student {telegram_id}")
+        response = self._make_authenticated_request('GET', 'student/event', telegram_id)
         if response and response.status_code == 200:
-            return response.json()
+            events = response.json()
+            logger.info(f"Retrieved {len(events)} total events for student {telegram_id}")
+            return events
+        logger.warning(f"Failed to get all events for student {telegram_id}")
+        return None
         return None
     
     def register_for_event(self, telegram_id: int, event_id: str) -> tuple[bool, str]:
         response = self._make_authenticated_request(
             'POST', 
-            f'student/events/{event_id}/register', 
+            f'student/event/{event_id}/register', 
             telegram_id
         )
         
@@ -158,7 +175,7 @@ class APIService:
     def unregister_from_event(self, telegram_id: int, event_id: str) -> tuple[bool, str]:
         response = self._make_authenticated_request(
             'DELETE', 
-            f'student/events/{event_id}/unregister', 
+            f'student/event/{event_id}/unregister', 
             telegram_id
         )
         
@@ -216,6 +233,48 @@ class APIService:
         
         logger.error(f"No response received for event creation for user {telegram_id}")
         return False, "Connection error during event creation"
+
+    def edit_event(self, telegram_id: int, event_data: Dict[str, Any]) -> tuple[bool, str]:
+        logger.info(f"Editing event for telegram_id {telegram_id} with data: {event_data}")
+        logger.info(f"API Base URL: {self.base_url}")
+        
+        headers = self._get_auth_headers(telegram_id)
+        if not headers:
+            logger.error(f"No valid token for user {telegram_id} when editing event")
+            return False, "Authentication error. Please login again with /start"
+        
+        response = self._make_authenticated_request(
+            'PUT', 
+            'manager/event/edit', 
+            telegram_id,
+            json=event_data
+        )
+        
+        if response:
+            logger.info(f"Event edit response status: {response.status_code}")
+            logger.info(f"Event edit response body: {response.text}")
+            
+            if response.status_code in [200, 201]:
+                return True, "Event updated successfully"
+            elif response.status_code == 401:
+                logger.error(f"Authentication failed (401): {response.text}")
+                return False, "Authentication failed. Please login again with /start"
+            else:
+                try:
+                    error_msg = response.json().get('message', 'Event edit failed')
+                except:
+                    error_msg = f"Event edit failed with status {response.status_code}: {response.text[:200]}"
+                logger.error(f"Event edit failed: {error_msg}")
+                return False, error_msg
+        
+        logger.error(f"No response received for event edit for user {telegram_id}")
+        return False, "Connection error during event edit"
+
+    def get_event_by_id(self, telegram_id: int, event_id: str) -> Optional[Dict[str, Any]]:
+        response = self._make_authenticated_request('GET', f'manager/event/{event_id}', telegram_id)
+        if response and response.status_code == 200:
+            return response.json()
+        return None
     
     def get_event_participants(self, telegram_id: int, event_id: str) -> Optional[list]:
         response = self._make_authenticated_request('GET', f'manager/event/{event_id}', telegram_id)

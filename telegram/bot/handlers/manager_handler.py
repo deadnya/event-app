@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from .base_handler import BaseHandler
-from ..config import MANAGER_ROLE, CREATE_EVENT_NAME, CREATE_EVENT_DESC, CREATE_EVENT_DATE, CREATE_EVENT_LOCATION
+from ..config import MANAGER_ROLE, CREATE_EVENT_NAME, CREATE_EVENT_DESC, CREATE_EVENT_DATE, CREATE_EVENT_LOCATION, EDIT_EVENT_SELECT, EDIT_EVENT_FIELD, EDIT_EVENT_VALUE
 from ..utils.logger import logger
 from datetime import datetime, timedelta
 import re
@@ -420,8 +420,9 @@ class ManagerHandler(BaseHandler):
         await query.edit_message_text(
             f"✏️ <b>Edit Event</b>\n\n"
             f"Event ID: <code>{event_id}</code>\n\n"
-            "Event editing via buttons is not implemented yet.\n"
-            "Please use the command: <code>/edit_event</code>",
+            "To edit this event, please use the command:\n"
+            f"<code>/edit_event {event_id}</code>\n\n"
+            "This will start the interactive editing process where you can modify the event name, description, date, and location.",
             parse_mode='HTML'
         )
     
@@ -464,10 +465,311 @@ class ManagerHandler(BaseHandler):
         await self.log_command_usage(update, "edit_event")
         
         if not await self.require_role(update, MANAGER_ROLE):
-            return
+            return ConversationHandler.END
         
-        # TODO: Implement event editing conversation
-        await update.message.reply_text("🚧 Event editing feature will be implemented soon!")
+        user_id = update.effective_user.id
+        
+        # Get command parts to see if event ID was provided
+        command_parts = update.message.text.split()
+        if len(command_parts) > 1:
+            event_id = command_parts[1]
+            return await self.start_edit_event_with_id(update, context, event_id)
+        
+        # No event ID provided, show list of events to select from
+        events = self.api_service.get_company_events(user_id)
+        
+        if events is None:
+            await update.message.reply_text(
+                "❌ Failed to fetch your events. Please try again later."
+            )
+            return ConversationHandler.END
+        
+        if not events:
+            await update.message.reply_text(
+                "📅 You don't have any events to edit.\n"
+                "Create your first event using the ➕ Create Event button!"
+            )
+            return ConversationHandler.END
+        
+        # Initialize editing data
+        if not hasattr(self, 'event_editing_data'):
+            self.event_editing_data = {}
+        self.event_editing_data[user_id] = {}
+        
+        # Show events for selection
+        events_text = "✏️ <b>Select Event to Edit:</b>\n\n"
+        keyboard = []
+        
+        for event in events[:10]:  # Limit to 10 events
+            date_str = event.get('date', 'N/A')
+            if date_str != 'N/A':
+                try:
+                    event_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                    date_str = event_date.strftime('%d/%m/%Y %H:%M')
+                except:
+                    pass
+                    
+            events_text += (
+                f"🎯 <b>{event.get('name', 'N/A')}</b>\n"
+                f"📅 {date_str}\n"
+                f"📍 {event.get('location', 'N/A')}\n"
+                f"🆔 <code>{event.get('id', 'N/A')}</code>\n\n"
+            )
+        
+        events_text += "\nPlease reply with the <b>Event ID</b> you want to edit:"
+        
+        await update.message.reply_text(events_text, parse_mode='HTML')
+        return EDIT_EVENT_SELECT
+
+    async def start_edit_event_with_id(self, update: Update, context: ContextTypes.DEFAULT_TYPE, event_id: str):
+        user_id = update.effective_user.id
+        
+        if not hasattr(self, 'event_editing_data'):
+            self.event_editing_data = {}
+        self.event_editing_data[user_id] = {'event_id': event_id}
+        
+        event = self.api_service.get_event_by_id(user_id, event_id)
+        
+        if event is None:
+            await update.message.reply_text(
+                f"❌ Event with ID {event_id} not found or you don't have permission to edit it."
+            )
+            return ConversationHandler.END
+        
+        self.event_editing_data[user_id]['current_event'] = event
+        
+        date_str = event.get('date', 'N/A')
+        if date_str != 'N/A':
+            try:
+                event_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                date_str = event_date.strftime('%d/%m/%Y %H:%M')
+            except:
+                pass
+        
+        event_details = (
+            f"✏️ <b>Editing Event:</b>\n\n"
+            f"🎯 <b>Name:</b> {event.get('name', 'N/A')}\n"
+            f"📝 <b>Description:</b> {event.get('description') or 'None'}\n"
+            f"📅 <b>Date:</b> {date_str}\n"
+            f"📍 <b>Location:</b> {event.get('location', 'N/A')}\n\n"
+            "<b>What would you like to edit?</b>\n\n"
+            "Reply with:\n"
+            "• <b>name</b> - to change the event name\n"
+            "• <b>description</b> - to change the description\n"
+            "• <b>date</b> - to change the date and time\n"
+            "• <b>location</b> - to change the location\n"
+            "• <b>cancel</b> - to cancel editing"
+        )
+        
+        await update.message.reply_text(event_details, parse_mode='HTML')
+        return EDIT_EVENT_FIELD
+
+    async def get_edit_event_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        event_id = update.message.text.strip()
+        
+        if not hasattr(self, 'event_editing_data') or user_id not in self.event_editing_data:
+            await update.message.reply_text(
+                "❌ Session expired. Please start over with /edit_event"
+            )
+            return ConversationHandler.END
+        
+        return await self.start_edit_event_with_id(update, context, event_id)
+
+    async def get_edit_field(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        field = update.message.text.strip().lower()
+        
+        if not hasattr(self, 'event_editing_data') or user_id not in self.event_editing_data:
+            await update.message.reply_text(
+                "❌ Session expired. Please start over with /edit_event"
+            )
+            return ConversationHandler.END
+        
+        if field == 'cancel':
+            await self.cancel_event_editing(update, context)
+            return ConversationHandler.END
+        
+        if field not in ['name', 'description', 'date', 'location']:
+            await update.message.reply_text(
+                "❌ Invalid field. Please choose: <b>name</b>, <b>description</b>, <b>date</b>, <b>location</b>, or <b>cancel</b>",
+                parse_mode='HTML'
+            )
+            return EDIT_EVENT_FIELD
+        
+        self.event_editing_data[user_id]['field'] = field
+        current_event = self.event_editing_data[user_id]['current_event']
+        
+        if field == 'name':
+            current_value = current_event.get('name', 'N/A')
+            await update.message.reply_text(
+                f"📝 <b>Edit Event Name</b>\n\n"
+                f"Current name: <b>{current_value}</b>\n\n"
+                f"Please enter the new event name (max 255 characters):",
+                parse_mode='HTML'
+            )
+        elif field == 'description':
+            current_value = current_event.get('description') or 'None'
+            await update.message.reply_text(
+                f"📝 <b>Edit Event Description</b>\n\n"
+                f"Current description: <b>{current_value}</b>\n\n"
+                f"Please enter the new description (or 'skip' for no description, max 3000 characters):",
+                parse_mode='HTML'
+            )
+        elif field == 'date':
+            date_str = current_event.get('date', 'N/A')
+            if date_str != 'N/A':
+                try:
+                    event_date = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                    date_str = event_date.strftime('%d/%m/%Y %H:%M')
+                except:
+                    pass
+            await update.message.reply_text(
+                f"📅 <b>Edit Event Date</b>\n\n"
+                f"Current date: <b>{date_str}</b>\n\n"
+                f"Please enter the new date in format: <code>DD/MM/YYYY HH:MM</code>\n"
+                f"Example: <code>25/12/2024 14:30</code>",
+                parse_mode='HTML'
+            )
+        elif field == 'location':
+            current_value = current_event.get('location', 'N/A')
+            await update.message.reply_text(
+                f"� <b>Edit Event Location</b>\n\n"
+                f"Current location: <b>{current_value}</b>\n\n"
+                f"Please enter the new location:",
+                parse_mode='HTML'
+            )
+        
+        return EDIT_EVENT_VALUE
+
+    async def get_edit_value(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        new_value = update.message.text.strip()
+        
+        if not hasattr(self, 'event_editing_data') or user_id not in self.event_editing_data:
+            await update.message.reply_text(
+                "❌ Session expired. Please start over with /edit_event"
+            )
+            return ConversationHandler.END
+        
+        field = self.event_editing_data[user_id]['field']
+        current_event = self.event_editing_data[user_id]['current_event']
+        event_id = self.event_editing_data[user_id]['event_id']
+        
+        if field == 'name':
+            if len(new_value) > 255:
+                await update.message.reply_text(
+                    "❌ Event name is too long (maximum 255 characters).\n"
+                    "Please enter a shorter name:"
+                )
+                return EDIT_EVENT_VALUE
+            current_event['name'] = new_value
+            
+        elif field == 'description':
+            if new_value.lower() == 'skip':
+                current_event['description'] = None
+            else:
+                if len(new_value) > 3000:
+                    await update.message.reply_text(
+                        "❌ Description is too long (maximum 3000 characters).\n"
+                        "Please enter a shorter description:"
+                    )
+                    return EDIT_EVENT_VALUE
+                current_event['description'] = new_value
+                
+        elif field == 'date':
+            date_pattern = r'^\d{2}/\d{2}/\d{4} \d{2}:\d{2}$'
+            if not re.match(date_pattern, new_value):
+                await update.message.reply_text(
+                    "❌ Invalid date format. Please use: <code>DD/MM/YYYY HH:MM</code>\n"
+                    "Example: <code>25/12/2024 14:30</code>",
+                    parse_mode='HTML'
+                )
+                return EDIT_EVENT_VALUE
+            
+            try:
+                event_date = datetime.strptime(new_value, '%d/%m/%Y %H:%M')
+                if event_date <= datetime.now():
+                    await update.message.reply_text(
+                        "❌ Event date must be in the future. Please enter a future date:"
+                    )
+                    return EDIT_EVENT_VALUE
+                current_event['date'] = event_date.isoformat()
+            except ValueError:
+                await update.message.reply_text(
+                    "❌ Invalid date. Please enter a valid date in format: <code>DD/MM/YYYY HH:MM</code>",
+                    parse_mode='HTML'
+                )
+                return EDIT_EVENT_VALUE
+                
+        elif field == 'location':
+            if not new_value:
+                await update.message.reply_text(
+                    "❌ Location cannot be empty. Please enter the location:"
+                )
+                return EDIT_EVENT_VALUE
+            current_event['location'] = new_value
+        
+        edit_data = {
+            'id': event_id,
+            'name': current_event['name'],
+            'description': current_event.get('description'),
+            'date': current_event['date'],
+            'location': current_event['location']
+        }
+        
+        date_str = current_event.get('date', 'N/A')
+        if date_str != 'N/A':
+            try:
+                event_date = datetime.fromisoformat(date_str)
+                date_str = event_date.strftime('%d/%m/%Y %H:%M')
+            except:
+                pass
+        
+        confirmation_text = (
+            f"✅ <b>Event Updated!</b>\n\n"
+            f"🎯 <b>Name:</b> {edit_data['name']}\n"
+            f"📝 <b>Description:</b> {edit_data.get('description') or 'None'}\n"
+            f"📅 <b>Date:</b> {date_str}\n"
+            f"📍 <b>Location:</b> {edit_data['location']}\n\n"
+            "Saving changes..."
+        )
+        
+        await update.message.reply_text(confirmation_text, parse_mode='HTML')
+        
+        success, message = self.api_service.edit_event(user_id, edit_data)
+        
+        if success:
+            await update.message.reply_text(
+                f"✅ <b>Event successfully updated!</b>\n\n"
+                f"The changes to '{edit_data['name']}' have been saved.",
+                parse_mode='HTML'
+            )
+        else:
+            await update.message.reply_text(
+                f"❌ <b>Failed to update event:</b>\n{message}\n\n"
+                "Please try again with /edit_event",
+                parse_mode='HTML'
+            )
+        
+        if user_id in self.event_editing_data:
+            del self.event_editing_data[user_id]
+        
+        return ConversationHandler.END
+
+    async def cancel_event_editing(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        logger.info(f"User {user_id} cancelled event editing")
+        
+        if hasattr(self, 'event_editing_data') and user_id in self.event_editing_data:
+            del self.event_editing_data[user_id]
+        
+        await update.message.reply_text(
+            "❌ Event editing cancelled.\n"
+            "Use /edit_event to start editing again.",
+            reply_markup=self.general_handler.get_role_keyboard(update.effective_user)
+        )
+        return ConversationHandler.END
     
     async def delete_event(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await self.log_command_usage(update, "delete_event")

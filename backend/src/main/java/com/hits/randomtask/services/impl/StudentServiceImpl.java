@@ -1,8 +1,10 @@
 package com.hits.randomtask.services.impl;
 
+import com.hits.randomtask.dtos.EventDTO;
 import com.hits.randomtask.entities.Event;
 import com.hits.randomtask.entities.EventRegistration;
 import com.hits.randomtask.entities.User;
+import com.hits.randomtask.mappers.EventMapper;
 import com.hits.randomtask.repositories.EventRegistrationRepository;
 import com.hits.randomtask.repositories.EventRepository;
 import com.hits.randomtask.repositories.UserRepository;
@@ -12,6 +14,8 @@ import com.hits.randomtask.shared.exceptions.custom.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class StudentServiceImpl implements StudentService {
@@ -19,6 +23,7 @@ public class StudentServiceImpl implements StudentService {
     private final EventRegistrationRepository eventRegistrationRepository;
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
+    private final EventMapper eventMapper;
 
     @Override
     public void registerToEvent(String eventId, User user) {
@@ -56,5 +61,14 @@ public class StudentServiceImpl implements StudentService {
         }
 
         eventRegistrationRepository.deleteByEventIdAndUserId(eventId, user.getId());
+    }
+
+    @Override
+    public List<EventDTO> getMyEvents(User user) {
+        List<EventRegistration> registrations = eventRegistrationRepository.findByUserId(user.getId());
+        return registrations.stream()
+                .map(EventRegistration::getEvent)
+                .map(eventMapper::toDTO)
+                .toList();
     }
 }

@@ -19,6 +19,11 @@ public class StudentController {
     private final StudentService studentService;
     private final EventService eventService;
 
+    @GetMapping("/events")
+    public ResponseEntity<List<EventDTO>> getMyEvents(@AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(studentService.getMyEvents(user));
+    }
+
     @GetMapping("/event")
     public ResponseEntity<List<EventDTO>> getAllEvents() {
         return ResponseEntity.ok(eventService.getAllEvents());

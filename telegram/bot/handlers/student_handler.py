@@ -10,6 +10,9 @@ class StudentHandler(BaseHandler):
     async def student_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await self.log_command_usage(update, "student_help")
         
+        if not await self.require_authentication(update):
+            return
+        
         if not await self.require_role(update, STUDENT_ROLE):
             return
         
@@ -32,6 +35,9 @@ class StudentHandler(BaseHandler):
     async def my_events(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await self.log_command_usage(update, "my_events")
         
+        if not await self.require_authentication(update):
+            return
+        
         if not await self.require_role(update, STUDENT_ROLE):
             return
         
@@ -50,117 +56,194 @@ class StudentHandler(BaseHandler):
             ])
             await update.message.reply_text(
                 "📅 You haven't registered for any events yet.\n"
-                "Click the button below to find events you can register for!",
+                "Click the button below to find events you can join!",
                 reply_markup=keyboard
             )
             return
         
-        events_text = "📅 <b>Your Registered Events:</b>\n\n"
-        keyboard = []
+        now = datetime.now()
+        upcoming_events = []
+        past_events = []
         
         for event in events:
-            date_str = event.get('date', 'N/A')
-            if date_str != 'N/A':
-                try:
-                    date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                    date_str = date_obj.strftime('%d/%m/%Y %H:%M')
-                except:
-                    pass
+            try:
+                event_date = datetime.fromisoformat(event.get('date', '').replace('Z', '+00:00'))
+                if event_date > now:
+                    upcoming_events.append(event)
+                else:
+                    past_events.append(event)
+            except:
+                upcoming_events.append(event)
+        
+        events_text = "📚 <b>Your Events</b>\n\n"
+        keyboard = []
+        
+        if upcoming_events:
+            events_text += "🔜 <b>Upcoming Events:</b>\n\n"
             
-            events_text += (
-                f"🎯 <b>{event.get('name', 'N/A')}</b>\n"
-                f"📅 {date_str}\n"
-                f"📍 {event.get('location', 'N/A')}\n"
-                f"🆔 <code>{event.get('id', 'N/A')}</code>\n\n"
-            )
-            
-            keyboard.append([
-                InlineKeyboardButton(
-                    f"❌ Leave '{event.get('name', 'Event')[:20]}...'", 
-                    callback_data=f"unregister_{event.get('id')}"
+            for event in upcoming_events:
+                date_str = self._format_event_date(event.get('date', ''))
+                event_id = event.get('id', '')
+                
+                events_text += (
+                    f"🎯 <b>{event.get('name', 'N/A')}</b>\n"
+                    f"📅 {date_str}\n"
+                    f"📍 {event.get('location', 'N/A')}\n"
+                    f"📝 {event.get('description', 'No description')[:100]}{'...' if len(event.get('description', '')) > 100 else ''}\n"
+                    f"👥 {len(event.get('registrations', []))} participants\n"
+                    f"🆔 <code>{event_id}</code>\n\n"
                 )
-            ])
+                
+                keyboard.append([
+                    InlineKeyboardButton("❌ Unregister", callback_data=f"unregister_{event_id}")
+                ])
+        
+        if past_events:
+            events_text += "📚 <b>Past Events:</b>\n\n"
+            
+            for event in past_events[:5]:
+                date_str = self._format_event_date(event.get('date', ''))
+                
+                events_text += (
+                    f"🎯 <b>{event.get('name', 'N/A')}</b>\n"
+                    f"📅 {date_str}\n"
+                    f"📍 {event.get('location', 'N/A')}\n"
+                    f"✅ Attended\n\n"
+                )
         
         keyboard.append([InlineKeyboardButton("🔍 Find More Events", callback_data="find_events")])
         
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
         await update.message.reply_text(events_text, parse_mode='HTML', reply_markup=reply_markup)
-    
+
     async def available_events(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await self.log_command_usage(update, "available_events")
+        
+        if not await self.require_authentication(update):
+            return
         
         if not await self.require_role(update, STUDENT_ROLE):
             return
         
         user_id = update.effective_user.id
-        events = self.api_service.get_available_events(user_id)
+        all_events = self.api_service.get_all_events(user_id)
+        student_events = self.api_service.get_student_events(user_id) or []
         
-        if events is None:
+        if all_events is None:
             await update.message.reply_text(
-                "❌ Failed to fetch available events. Please try again later."
+                "❌ Failed to fetch events. Please try again later."
             )
             return
         
-        if not events:
+        if not all_events:
             await update.message.reply_text(
-                "📅 No events available for registration at the moment."
+                "📅 No events are currently available."
             )
             return
         
-        events_text = "📅 <b>Available Events for Registration:</b>\n\n"
+        registered_event_ids = {event.get('id') for event in student_events}
+        
+        now = datetime.now()
+        upcoming_events = []
+        past_events = []
+        
+        for event in all_events:
+            try:
+                event_date = datetime.fromisoformat(event.get('date', '').replace('Z', '+00:00'))
+                if event_date > now:
+                    upcoming_events.append(event)
+                else:
+                    past_events.append(event)
+            except:
+                upcoming_events.append(event)
+        
+        upcoming_events.sort(key=lambda x: x.get('date', ''))
+        past_events.sort(key=lambda x: x.get('date', ''), reverse=True)
+        
+        events_text = "📅 <b>All Events</b>\n\n"
         keyboard = []
         
-        for event in events[:10]:
-            date_str = event.get('date', 'N/A')
-            if date_str != 'N/A':
-                try:
-                    date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                    date_str = date_obj.strftime('%d/%m/%Y %H:%M')
-                    
-                    if date_obj < datetime.now():
-                        status = "🔒 Past"
-                    else:
-                        status = "✅ Available"
-                except:
-                    status = "❓ Unknown"
-            else:
-                status = "❓ Unknown"
+        if upcoming_events:
+            events_text += "🔜 <b>Upcoming Events:</b>\n\n"
             
-            events_text += (
-                f"🎯 <b>{event.get('name', 'N/A')}</b>\n"
-                f"📅 {date_str} ({status})\n"
-                f"📍 {event.get('location', 'N/A')}\n"
-                f"� {event.get('description', 'N/A')[:100]}{'...' if len(event.get('description', '')) > 100 else ''}\n"
-                f"� Registrations: {len(event.get('registrations', []))}\n"
-                f"🆔 <code>{event.get('id', 'N/A')}</code>\n\n"
-            )
-            
-            if status != "� Past":
-                keyboard.append([
-                    InlineKeyboardButton(
-                        f"✅ Join '{event.get('name', 'Event')[:20]}...'", 
-                        callback_data=f"register_{event.get('id')}"
-                    )
-                ])
+            for event in upcoming_events[:8]:
+                date_str = self._format_event_date(event.get('date', ''))
+                event_id = event.get('id', '')
+                is_registered = event_id in registered_event_ids
+                
+                status = "✅ Registered" if is_registered else "📝 Available"
+                participant_count = len(event.get('registrations', []))
+                
+                events_text += (
+                    f"🎯 <b>{event.get('name', 'N/A')}</b>\n"
+                    f"📅 {date_str}\n"
+                    f"📍 {event.get('location', 'N/A')}\n"
+                    f"👥 {participant_count} participants\n"
+                    f"📝 {event.get('description', 'No description')[:100]}{'...' if len(event.get('description', '')) > 100 else ''}\n"
+                    f"📊 Status: {status}\n"
+                    f"🆔 <code>{event_id}</code>\n\n"
+                )
+                
+                if is_registered:
+                    keyboard.append([
+                        InlineKeyboardButton("❌ Unregister", callback_data=f"unregister_{event_id}")
+                    ])
+                else:
+                    keyboard.append([
+                        InlineKeyboardButton("✅ Register", callback_data=f"register_{event_id}")
+                    ])
         
-        if len(events) > 10:
-            events_text += f"... and {len(events) - 10} more events available"
+        if past_events:
+            events_text += "\n📚 <b>Past Events:</b>\n\n"
+            
+            for event in past_events[:5]:
+                date_str = self._format_event_date(event.get('date', ''))
+                event_id = event.get('id', '')
+                is_registered = event_id in registered_event_ids
+                participant_count = len(event.get('registrations', []))
+                
+                status = "✅ Attended" if is_registered else "❌ Not attended"
+                
+                events_text += (
+                    f"🎯 <b>{event.get('name', 'N/A')}</b>\n"
+                    f"📅 {date_str}\n"
+                    f"📍 {event.get('location', 'N/A')}\n"
+                    f"👥 {participant_count} participants\n"
+                    f"📊 {status}\n\n"
+                )
+        
+        keyboard.append([InlineKeyboardButton("🔄 Refresh Events", callback_data="refresh_events")])
         
         reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
-        await update.message.reply_text(events_text, parse_mode='HTML', reply_markup=reply_markup)
-    
+        
+        if len(events_text) > 4000:
+            upcoming_text = events_text.split("📚 <b>Past Events:</b>")[0]
+            await update.message.reply_text(upcoming_text, parse_mode='HTML', reply_markup=reply_markup)
+            
+            if "📚 <b>Past Events:</b>" in events_text:
+                past_text = "📚 <b>Past Events:</b>" + events_text.split("📚 <b>Past Events:</b>")[1]
+                await update.message.reply_text(past_text, parse_mode='HTML')
+        else:
+            await update.message.reply_text(events_text, parse_mode='HTML', reply_markup=reply_markup)
+
+    def _format_event_date(self, date_str: str) -> str:
+        if not date_str or date_str == 'N/A':
+            return 'N/A'
+        
+        try:
+            date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            return date_obj.strftime('%d/%m/%Y %H:%M')
+        except:
+            return date_str
+
     async def find_events(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Find events with search functionality"""
-        await self.log_command_usage(update, "find_events")
-        
-        if not await self.require_role(update, STUDENT_ROLE):
-            return
-        
         await self.available_events(update, context)
-    
+
     async def register_event(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Register for an event"""
         await self.log_command_usage(update, "register_event")
+        
+        if not await self.require_authentication(update):
+            return
         
         if not await self.require_role(update, STUDENT_ROLE):
             return
@@ -170,7 +253,7 @@ class StudentHandler(BaseHandler):
             await update.message.reply_text(
                 "❌ Please provide an event ID.\n"
                 "Usage: <code>/register_event &lt;event_id&gt;</code>\n\n"
-                "Use /available_events to see available events and their IDs.",
+                "You can find event IDs in the Available Events list.",
                 parse_mode='HTML'
             )
             return
@@ -181,12 +264,25 @@ class StudentHandler(BaseHandler):
         success, message = self.api_service.register_for_event(user_id, event_id)
         
         if success:
-            await update.message.reply_text(f"✅ {message}")
+            await update.message.reply_text(
+                f"✅ <b>Registration Successful!</b>\n\n"
+                f"You have been registered for the event.\n"
+                f"Event ID: <code>{event_id}</code>\n\n"
+                f"Use /my_events to see all your registered events.",
+                parse_mode='HTML'
+            )
         else:
-            await update.message.reply_text(f"❌ {message}")
-    
+            await update.message.reply_text(
+                f"❌ <b>Registration Failed:</b>\n{message}\n\n"
+                f"Please check the event ID and try again.",
+                parse_mode='HTML'
+            )
+
     async def unregister_event(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await self.log_command_usage(update, "unregister_event")
+        
+        if not await self.require_authentication(update):
+            return
         
         if not await self.require_role(update, STUDENT_ROLE):
             return
@@ -196,7 +292,7 @@ class StudentHandler(BaseHandler):
             await update.message.reply_text(
                 "❌ Please provide an event ID.\n"
                 "Usage: <code>/unregister_event &lt;event_id&gt;</code>\n\n"
-                "Use /my_events to see your registered events and their IDs.",
+                "You can find event IDs in your registered events list.",
                 parse_mode='HTML'
             )
             return
@@ -207,10 +303,20 @@ class StudentHandler(BaseHandler):
         success, message = self.api_service.unregister_from_event(user_id, event_id)
         
         if success:
-            await update.message.reply_text(f"✅ {message}")
+            await update.message.reply_text(
+                f"✅ <b>Unregistration Successful!</b>\n\n"
+                f"You have been unregistered from the event.\n"
+                f"Event ID: <code>{event_id}</code>\n\n"
+                f"Use /my_events to see your remaining registered events.",
+                parse_mode='HTML'
+            )
         else:
-            await update.message.reply_text(f"❌ {message}")
-    
+            await update.message.reply_text(
+                f"❌ <b>Unregistration Failed:</b>\n{message}\n\n"
+                f"Please check the event ID and try again.",
+                parse_mode='HTML'
+            )
+
     async def handle_callback_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
@@ -221,57 +327,123 @@ class StudentHandler(BaseHandler):
             await query.edit_message_text("❌ This feature is only available for students.")
             return
         
-        if query.data == "find_events":
-            await query.edit_message_text(
-                "🔍 <b>Finding Events...</b>\n\n"
-                "Loading available events for you...",
-                parse_mode='HTML'
-            )
-            await self.available_events(update, context)
-            return
-        
+        if query.data == "find_events" or query.data == "refresh_events":
+            await self._send_available_events(query, user_id)
+            
         elif query.data.startswith("register_"):
             event_id = query.data.split("_", 1)[1]
-            await self._register_event_inline(query, event_id, user_id)
+            await self._handle_event_registration(query, event_id, user_id)
             
         elif query.data.startswith("unregister_"):
             event_id = query.data.split("_", 1)[1]
-            await self._unregister_event_inline(query, event_id, user_id)
-    
-    async def _register_event_inline(self, query, event_id, user_id):
+            await self._handle_event_unregistration(query, event_id, user_id)
+
+    async def _send_available_events(self, query, user_id):
+        all_events = self.api_service.get_all_events(user_id)
+        student_events = self.api_service.get_student_events(user_id) or []
+        
+        if all_events is None:
+            await query.edit_message_text("❌ Failed to fetch events. Please try again later.")
+            return
+        
+        if not all_events:
+            await query.edit_message_text("📅 No events are currently available.")
+            return
+        
+        registered_event_ids = {event.get('id') for event in student_events}
+        
+        now = datetime.now()
+        upcoming_events = []
+        
+        for event in all_events:
+            try:
+                event_date = datetime.fromisoformat(event.get('date', '').replace('Z', '+00:00'))
+                if event_date > now:
+                    upcoming_events.append(event)
+            except:
+                upcoming_events.append(event)
+        
+        if not upcoming_events:
+            await query.edit_message_text("📅 No upcoming events available for registration.")
+            return
+        
+        upcoming_events.sort(key=lambda x: x.get('date', ''))
+        
+        events_text = "🔜 <b>Upcoming Events:</b>\n\n"
+        keyboard = []
+        
+        for event in upcoming_events[:6]:  # Limit to 6 for inline
+            date_str = self._format_event_date(event.get('date', ''))
+            event_id = event.get('id', '')
+            is_registered = event_id in registered_event_ids
+            
+            status = "✅ Registered" if is_registered else "📝 Available"
+            participant_count = len(event.get('registrations', []))
+            
+            events_text += (
+                f"🎯 <b>{event.get('name', 'N/A')}</b>\n"
+                f"📅 {date_str}\n"
+                f"📍 {event.get('location', 'N/A')}\n"
+                f"👥 {participant_count} participants\n"
+                f"📊 {status}\n\n"
+            )
+
+            if is_registered:
+                keyboard.append([
+                    InlineKeyboardButton("❌ Unregister", callback_data=f"unregister_{event_id}")
+                ])
+            else:
+                keyboard.append([
+                    InlineKeyboardButton("✅ Register", callback_data=f"register_{event_id}")
+                ])
+        
+        keyboard.append([InlineKeyboardButton("🔄 Refresh", callback_data="refresh_events")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(events_text, parse_mode='HTML', reply_markup=reply_markup)
+
+    async def _handle_event_registration(self, query, event_id, user_id):
         success, message = self.api_service.register_for_event(user_id, event_id)
         
         if success:
             await query.edit_message_text(
-                f"✅ <b>Successfully Registered!</b>\n\n"
-                f"You have been registered for the event.\n"
-                f"Event ID: <code>{event_id}</code>\n\n"
-                f"Use the 📚 My Events button to see all your registered events.",
-                parse_mode='HTML'
+                f"✅ <b>Registration Successful!</b>\n\n"
+                f"You have been registered for the event.\n\n"
+                f"Use the buttons below to manage your events:",
+                parse_mode='HTML',
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📚 My Events", callback_data="find_events")],
+                    [InlineKeyboardButton("🔍 Find More Events", callback_data="refresh_events")]
+                ])
             )
         else:
             await query.edit_message_text(
-                f"❌ <b>Registration Failed</b>\n\n"
-                f"Failed to register for the event:\n{message}\n\n"
-                f"Event ID: <code>{event_id}</code>",
-                parse_mode='HTML'
+                f"❌ <b>Registration Failed:</b>\n{message}",
+                parse_mode='HTML',
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔄 Try Again", callback_data="refresh_events")]
+                ])
             )
-    
-    async def _unregister_event_inline(self, query, event_id, user_id):
+
+    async def _handle_event_unregistration(self, query, event_id, user_id):
         success, message = self.api_service.unregister_from_event(user_id, event_id)
         
         if success:
             await query.edit_message_text(
-                f"✅ <b>Successfully Unregistered</b>\n\n"
-                f"You have been unregistered from the event.\n"
-                f"Event ID: <code>{event_id}</code>\n\n"
-                f"Use the 📚 My Events button to see your remaining events.",
-                parse_mode='HTML'
+                f"✅ <b>Unregistration Successful!</b>\n\n"
+                f"You have been unregistered from the event.\n\n"
+                f"Use the buttons below to manage your events:",
+                parse_mode='HTML',
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📚 My Events", callback_data="find_events")],
+                    [InlineKeyboardButton("🔍 Find More Events", callback_data="refresh_events")]
+                ])
             )
         else:
             await query.edit_message_text(
-                f"❌ <b>Unregistration Failed</b>\n\n"
-                f"Failed to unregister from the event:\n{message}\n\n"
-                f"Event ID: <code>{event_id}</code>",
-                parse_mode='HTML'
+                f"❌ <b>Unregistration Failed:</b>\n{message}",
+                parse_mode='HTML',
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔄 Try Again", callback_data="refresh_events")]
+                ])
             )
