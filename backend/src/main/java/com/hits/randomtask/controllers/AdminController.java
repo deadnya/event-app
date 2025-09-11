@@ -1,9 +1,6 @@
 package com.hits.randomtask.controllers;
 
-import com.hits.randomtask.dtos.CompanyShortDTO;
-import com.hits.randomtask.dtos.CreateCompanyDTO;
-import com.hits.randomtask.dtos.EditCompanyDTO;
-import com.hits.randomtask.dtos.EventDTO;
+import com.hits.randomtask.dtos.*;
 import com.hits.randomtask.services.AdminService;
 import com.hits.randomtask.services.EventService;
 import jakarta.validation.Valid;
@@ -16,6 +13,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
+@CrossOrigin
 public class AdminController {
 
     private final AdminService adminService;
@@ -23,13 +21,13 @@ public class AdminController {
 
     @PatchMapping("/approve-user/{userId}")
     public ResponseEntity<Void> approveUser(@PathVariable String userId) {
-        adminService.editUserApprovementStatus(userId, true);
+        adminService.editUserApprovementStatus(userId, true, null);
         return ResponseEntity.ok().build();
     }
 
     @PatchMapping("/decline-user/{userId}")
-    public ResponseEntity<Void> declineUser(@PathVariable String userId) {
-        adminService.editUserApprovementStatus(userId, false);
+    public ResponseEntity<Void> declineUser(@PathVariable String userId, @Valid @RequestBody DeclineReasonDTO declineReasonDTO) {
+        adminService.editUserApprovementStatus(userId, false, declineReasonDTO);
         return ResponseEntity.ok().build();
     }
 
@@ -51,5 +49,10 @@ public class AdminController {
     @GetMapping("/event/{id}")
     public ResponseEntity<EventDTO> getEvent(@PathVariable String id) {
         return ResponseEntity.ok(eventService.getEventById(id));
+    }
+
+    @GetMapping("/users/pending")
+    public ResponseEntity<List<UserDTO>> getPendingUsers() {
+        return ResponseEntity.ok(adminService.getPendingUsers());
     }
 }

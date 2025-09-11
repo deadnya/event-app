@@ -297,3 +297,57 @@ class APIService:
                 return False, error_msg
         
         return False, "Connection error during event deletion"
+
+    def get_pending_users(self, telegram_id: int) -> Optional[list]:
+        response = self._make_authenticated_request('GET', 'manager/users/pending', telegram_id)
+        
+        if response:
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.error(f"Failed to get pending users: {response.status_code} - {response.text}")
+                return None
+        
+        logger.error(f"No response received for pending users request for user {telegram_id}")
+        return None
+
+    def approve_user(self, telegram_id: int, user_id: str) -> tuple[bool, str]:
+        response = self._make_authenticated_request('PATCH', f'manager/approve-user/{user_id}', telegram_id)
+        
+        if response:
+            if response.status_code == 200:
+                return True, "User approved successfully"
+            else:
+                try:
+                    error_msg = response.json().get('message', 'User approval failed')
+                except:
+                    error_msg = f"User approval failed with status {response.status_code}"
+                logger.error(f"User approval failed: {error_msg}")
+                return False, error_msg
+        
+        logger.error(f"No response received for user approval for user {telegram_id}")
+        return False, "Connection error during user approval"
+
+    def decline_user(self, telegram_id: int, user_id: str, reason: Optional[str] = None) -> tuple[bool, str]:
+        decline_data = {"reason": reason} if reason else {"reason": None}
+        
+        response = self._make_authenticated_request(
+            'PATCH', 
+            f'manager/decline-user/{user_id}', 
+            telegram_id,
+            json=decline_data
+        )
+        
+        if response:
+            if response.status_code == 200:
+                return True, "User declined successfully"
+            else:
+                try:
+                    error_msg = response.json().get('message', 'User decline failed')
+                except:
+                    error_msg = f"User decline failed with status {response.status_code}"
+                logger.error(f"User decline failed: {error_msg}")
+                return False, error_msg
+        
+        logger.error(f"No response received for user decline for user {telegram_id}")
+        return False, "Connection error during user decline"

@@ -1,7 +1,7 @@
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ConversationHandler
 from .config import (BOT_TOKEN, SURNAME, NAME, PATRONYMIC, ROLE, GROUP_OR_COMPANY, 
-                    CREATE_EVENT_NAME, CREATE_EVENT_DESC, CREATE_EVENT_DATE, CREATE_EVENT_LOCATION,
-                    EDIT_EVENT_SELECT, EDIT_EVENT_FIELD, EDIT_EVENT_VALUE)
+                    CREATE_EVENT_NAME, CREATE_EVENT_DESC, CREATE_EVENT_DATE, CREATE_EVENT_DEADLINE, CREATE_EVENT_LOCATION,
+                    EDIT_EVENT_SELECT, EDIT_EVENT_FIELD, EDIT_EVENT_VALUE, DECLINE_USER_REASON)
 from .handlers.general_handler import GeneralHandler
 from .handlers.registration_handler import RegistrationHandler
 from .handlers.student_handler import StudentHandler
@@ -45,6 +45,7 @@ class TelegramBot:
                 CREATE_EVENT_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.manager_handler.get_event_name)],
                 CREATE_EVENT_DESC: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.manager_handler.get_event_description)],
                 CREATE_EVENT_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.manager_handler.get_event_date)],
+                CREATE_EVENT_DEADLINE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.manager_handler.get_event_deadline)],
                 CREATE_EVENT_LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.manager_handler.get_event_location)],
             },
             fallbacks=[CommandHandler('cancel', self.manager_handler.cancel_event_creation)],
@@ -65,15 +66,26 @@ class TelegramBot:
             per_chat=True,
             name="event_editing"
         )
+
+        user_decline_conversation = ConversationHandler(
+            entry_points=[],
+            states={
+                DECLINE_USER_REASON: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.manager_handler.get_decline_reason)],
+            },
+            fallbacks=[CommandHandler('cancel', self.manager_handler.cancel_decline_user)],
+            per_user=True,
+            per_chat=True,
+            name="user_decline"
+        )
         
         self.application.add_handler(CommandHandler("start", self.general_handler.start_command))
         self.application.add_handler(CommandHandler("help", self.general_handler.help_command))
         self.application.add_handler(CommandHandler("status", self.general_handler.status_command))
-        self.application.add_handler(CommandHandler("backend_health", self.general_handler.backend_health_command))
         
         self.application.add_handler(registration_conversation)
         self.application.add_handler(event_creation_conversation)
         self.application.add_handler(event_editing_conversation)
+        self.application.add_handler(user_decline_conversation)
         
         self.application.add_handler(CommandHandler("student_help", self.student_handler.student_help))
         self.application.add_handler(CommandHandler("my_events", self.student_handler.my_events))
@@ -87,10 +99,13 @@ class TelegramBot:
         self.application.add_handler(CommandHandler("event_stats", self.manager_handler.event_stats))
         self.application.add_handler(CommandHandler("delete_event", self.manager_handler.delete_event))
         self.application.add_handler(CommandHandler("event_participants", self.manager_handler.event_participants))
+        self.application.add_handler(CommandHandler("pending_users", self.manager_handler.pending_users))
+        self.application.add_handler(CommandHandler("approve_user", self.manager_handler.approve_user_command))
+        self.application.add_handler(CommandHandler("decline_user", self.manager_handler.decline_user_command))
         
         self.application.add_handler(CallbackQueryHandler(
             self.manager_handler.handle_callback_query, 
-            pattern=r'^(create_event|participants_|edit_event_|delete_event_|confirm_delete_|cancel_delete)'
+            pattern=r'^(create_event|participants_|edit_event_|delete_event_|confirm_delete_|cancel_delete|approve_user_|decline_user_)'
         ))
         self.application.add_handler(CallbackQueryHandler(
             self.student_handler.handle_callback_query, 

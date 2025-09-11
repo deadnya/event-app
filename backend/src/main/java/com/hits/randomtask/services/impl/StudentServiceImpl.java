@@ -39,6 +39,10 @@ public class StudentServiceImpl implements StudentService {
             throw new BadRequestException("Cannot register for an event that has already occurred");
         }
 
+        if (event.getRegistrationDeadline().isBefore(java.time.LocalDateTime.now())) {
+            throw new BadRequestException("Registration deadline has passed");
+        }
+
         EventRegistration eventRegistration = new EventRegistration();
         eventRegistration.setEvent(event);
         eventRegistration.setUser(user);
@@ -58,6 +62,10 @@ public class StudentServiceImpl implements StudentService {
 
         if (event.getDate().isBefore(java.time.LocalDateTime.now())) {
             throw new BadRequestException("Cannot unregister from an event that has already occurred");
+        }
+
+        if (event.getRegistrationDeadline().isBefore(java.time.LocalDateTime.now())) {
+            throw new BadRequestException("Registration deadline has passed, cannot unregister");
         }
 
         eventRegistrationRepository.deleteByEventIdAndUserId(eventId, user.getId());

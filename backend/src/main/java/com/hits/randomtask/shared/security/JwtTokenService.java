@@ -62,6 +62,7 @@ public class JwtTokenService {
                 .claim("role", primaryRole)
                 .claim("telegramId", user.getTelegramChatId())
                 .claim("userId", user.getId())
+                .id(uuidService.getRandomUUID())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + expireTime ))
                 .signWith(getSigningKey())
@@ -69,15 +70,27 @@ public class JwtTokenService {
     }
 
     public String extractUsername(String token) {
+        if (token == null || token.trim().isEmpty()) {
+            logger.warn("Attempted to extract username from null or empty token");
+            return null;
+        }
         return extractClaim(token, Claims::getSubject);
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> resolver) {
+        if (token == null || token.trim().isEmpty()) {
+            logger.warn("Attempted to extract claim from null or empty token");
+            return null;
+        }
         Claims claims = extractAllClaims(token);
         return resolver.apply(claims);
     }
 
     private Claims extractAllClaims(String token) {
+        if (token == null || token.trim().isEmpty()) {
+            logger.warn("Attempted to extract claims from null or empty token");
+            throw new IllegalArgumentException("Token cannot be null or empty");
+        }
         return Jwts
                 .parser()
                 .verifyWith(getSigningKey())
@@ -87,13 +100,25 @@ public class JwtTokenService {
     }
 
     public boolean isValid(String token, UserDetails user) {
+        if (token == null || token.trim().isEmpty()) {
+            logger.warn("Token validation failed: token is null or empty");
+            return false;
+        }
+        
         String username = extractUsername(token);
+        if (username == null) {
+            logger.warn("Token validation failed: unable to extract username");
+            return false;
+        }
+        
         logger.info("Validating token for user: {}", username);
 
         boolean validToken = tokenRepository
                 .findByAccessToken(token)
                 .map(t -> {
-                    logger.info("Token found in DB, loggedOut: {}", t.isLoggedOut());
+                    logger.info("Token found in DB with ID: {}, loggedOut: {}, token starts with: {}...", 
+                               t.getId(), t.isLoggedOut(), 
+                               t.getAccessToken().substring(0, Math.min(20, t.getAccessToken().length())));
                     return !t.isLoggedOut();
                 })
                 .orElse(false);
@@ -110,18 +135,55 @@ public class JwtTokenService {
     }
 
     public boolean isValidRefreshToken(String token, User user) {
+        if (token == null || token.trim().isEmpty()) {
+            logger.warn("Refresh token validation failed: token is null or empty");
+            return false;
+        }
+        
         String username = extractUsername(token);
+        if (username == null) {
+            logger.warn("Refresh token validation failed: unable to extract username");
+            return false;
+        }
+
+        logger.info("Validating refresh token - extracted username: '{}', user.getUsername(): '{}'", username, user.getUsername());
 
         boolean validRefreshToken = tokenRepository
                 .findByRefreshToken(token)
-                .map(t -> !t.isLoggedOut())
+                .map(t -> {
+                    logger.info("Refresh token found in DB with ID: {}, loggedOut: {}, refresh token starts with: {}...", 
+                               t.getId(), t.isLoggedOut(), 
+                               t.getRefreshToken().substring(0, Math.min(20, t.getRefreshToken().length())));
+                    return !t.isLoggedOut();
+                })
                 .orElse(false);
 
-        return (username.equals(user.getUsername())) && !isTokenExpired(token) && validRefreshToken;
+        logger.info("Refresh token DB validation: {}", validRefreshToken);
+        
+        boolean expired = isTokenExpired(token);
+        logger.info("Refresh token expired: {}", expired);
+        
+        boolean usernameMatches = username.equals(user.getUsername());
+        logger.info("Username matches: {}", usernameMatches);
+
+        boolean result = usernameMatches && !expired && validRefreshToken;
+        logger.info("Final refresh token validation result: {}", result);
+        
+        return result;
     }
 
     private boolean isTokenExpired(String token) {
+        if (token == null || token.trim().isEmpty()) {
+            logger.warn("Token expiration check failed: token is null or empty");
+            return true;
+        }
+        
         Date expiration = extractExpiration(token);
+        if (expiration == null) {
+            logger.warn("Token expiration check failed: unable to extract expiration date");
+            return true;
+        }
+        
         Date now = new Date();
         boolean expired = expiration.before(now);
         logger.info("Token expiration check - expires at: {}, current time: {}, expired: {}", 
@@ -153,13 +215,18 @@ public class JwtTokenService {
 
     public void revokeAllTokens(User user) {
         List<Token> tokens = tokenRepository.findAllByUserAndLoggedOutFalse(user);
+        logger.info("Revoking {} active tokens for user: {}", tokens.size(), user.getUsername());
         tokens.forEach(token -> {
+            logger.info("Revoking token ID: {}", token.getId());
             token.setLoggedOut(true);
             tokenRepository.save(token);
         });
+        logger.info("All tokens revoked for user: {}", user.getUsername());
     }
 
     public Token saveToken(User user, String accessToken, String refreshToken) {
+        logger.info("Saving new token for user: {}", user.getUsername());
+        logger.info("Access token to save: {}...", accessToken.substring(0, Math.min(20, accessToken.length())));
         Token token = new Token();
         token.setId(uuidService.getRandomUUID());
         token.setAccessToken(accessToken);
@@ -167,6 +234,10 @@ public class JwtTokenService {
         token.setUser(user);
         token.setLoggedOut(false);
         token.setExpirationDate(extractExpiration(accessToken).toInstant());
-        return tokenRepository.save(token);
+        Token savedToken = tokenRepository.save(token);
+        logger.info("Token saved with ID: {}, loggedOut: {}, access token starts with: {}...", 
+                   savedToken.getId(), savedToken.isLoggedOut(), 
+                   savedToken.getAccessToken().substring(0, Math.min(20, savedToken.getAccessToken().length())));
+        return savedToken;
     }
 }

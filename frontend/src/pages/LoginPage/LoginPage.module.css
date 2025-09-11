@@ -1,0 +1,228 @@
+.container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 24px;
+}
+
+.loginBox {
+    background: white;
+    border-radius: 12px;
+    padding: 48px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+}
+
+.title {
+    font-size: 28px;
+    color: #2c3e50;
+    margin: 0 0 32px 0;
+    text-align: center;
+    font-weight: 700;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.input {
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 16px;
+    transition: border-color 0.2s ease;
+}
+
+.input:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.input:disabled {
+    background-color: #f8f9fa;
+    cursor: not-allowed;
+}
+
+.loginButton {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 14px 24px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    margin-top: 8px;
+}
+
+.loginButton:hover:not(:disabled) {
+    background-color: #2980b9;
+}
+
+.loginButton:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+}
+
+.separator {
+    position: relative;
+    text-align: center;
+    margin: 32px 0;
+    border-top: 1px solid #e0e0e0;
+}
+
+.separatorText {
+    background: white;
+    padding: 0 16px;
+    color: #7f8c8d;
+    font-size: 14px;
+    font-weight: 500;
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.loginButton:disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+}
+
+.telegramLogin {
+    text-align: center;
+}
+
+.telegramText {
+    color: #666;
+    margin: 0;
+    line-height: 1.5;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.telegramSubtext {
+    color: #888;
+    margin: 0;
+    line-height: 1.4;
+    font-size: 14px;
+}
+
+.telegramWidgetContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60px;
+    padding: 16px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 2px dashed #dee2e6;
+}
+
+.telegramWidget {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.telegramInfo {
+    background-color: #e7f3ff;
+    border: 1px solid #b8daff;
+    border-radius: 6px;
+    padding: 12px;
+    margin-top: 8px;
+}
+
+.infoText {
+    margin: 0;
+    font-size: 14px;
+    color: #004085;
+    line-height: 1.4;
+}
+
+.telegramButton {
+    background-color: #0088cc;
+    color: white;
+    border: none;
+    padding: 14px 24px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.telegramButton:hover {
+    background-color: #006ba3;
+}
+
+.fallbackContainer {
+    margin-top: 16px;
+    text-align: center;
+}
+
+.fallbackButton {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.fallbackButton:hover {
+    background-color: #218838;
+}
+
+.error {
+    background-color: #fee;
+    color: #e74c3c;
+    padding: 12px 16px;
+    border-radius: 6px;
+    border: 1px solid #f5c6cb;
+    font-size: 14px;
+    text-align: center;
+    margin-top: 20px;
+}
+
+.telegramInfo {
+    margin-top: 16px;
+}
+
+.infoText {
+    color: #6c757d;
+    font-size: 12px;
+    margin: 0;
+    text-align: center;
+}
+
+@media (max-width: 480px) {
+    .loginBox {
+        padding: 32px 24px;
+    }
+    
+    .title {
+        font-size: 24px;
+    }
+}

@@ -1,0 +1,182 @@
+.container {
+    width: 100%;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.title {
+    margin: 0;
+    font-size: 28px;
+    color: #2c3e50;
+    font-weight: 700;
+}
+
+.refreshButton {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.refreshButton:hover {
+    background-color: #2980b9;
+}
+
+.error {
+    background-color: #fee;
+    color: #e74c3c;
+    padding: 16px;
+    border-radius: 6px;
+    border: 1px solid #f5c6cb;
+    margin-bottom: 24px;
+}
+
+.emptyState {
+    text-align: center;
+    padding: 48px 24px;
+    color: #666;
+    font-size: 18px;
+}
+
+.eventGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 24px;
+}
+
+.eventCard {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 24px;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.eventCard:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.pastEvent {
+    opacity: 0.7;
+}
+
+.eventHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    gap: 12px;
+}
+
+.eventName {
+    margin: 0;
+    font-size: 20px;
+    color: #2c3e50;
+    font-weight: 600;
+    line-height: 1.3;
+    flex: 1;
+}
+
+.eventStatus {
+    flex-shrink: 0;
+}
+
+.upcomingBadge {
+    background-color: #27ae60;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.pastBadge {
+    background-color: #95a5a6;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.eventDetails {
+    margin-bottom: 20px;
+}
+
+.eventDate,
+.eventLocation,
+.registrationCount {
+    margin: 0 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #666;
+}
+
+.eventDescription {
+    margin: 16px 0 12px 0;
+    color: #555;
+    line-height: 1.5;
+    font-size: 14px;
+}
+
+.icon {
+    font-size: 16px;
+}
+
+.eventActions {
+    display: flex;
+    gap: 12px;
+    margin-top: auto;
+}
+
+.viewButton {
+    background-color: #3498db;
+    color: white;
+    text-decoration: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+    display: inline-block;
+    text-align: center;
+}
+
+.viewButton:hover {
+    background-color: #2980b9;
+}
+
+@media (max-width: 768px) {
+    .eventGrid {
+        grid-template-columns: 1fr;
+    }
+    
+    .header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .title {
+        font-size: 24px;
+        text-align: center;
+    }
+}

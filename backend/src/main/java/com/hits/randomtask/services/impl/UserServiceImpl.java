@@ -1,5 +1,6 @@
 package com.hits.randomtask.services.impl;
 
+import com.hits.randomtask.dtos.EditUserDTO;
 import com.hits.randomtask.dtos.TelegramRegistrationDTO;
 import com.hits.randomtask.entities.Company;
 import com.hits.randomtask.entities.FullName;
@@ -107,5 +108,19 @@ public class UserServiceImpl implements UserService {
     public User findByTelegramChatId(Long telegramChatId) {
         return userRepository.findByTelegramChatId(telegramChatId)
                 .orElse(null);
+    }
+
+    @Override
+    public User editUser(EditUserDTO editUserDTO, User user) {
+
+        User userToEdit = userRepository.findById(user.getId()).orElseThrow(
+                () -> new NotFoundException(String.format("User with id: %s not found", user.getId()))
+        );
+
+        userToEdit.getName().setSurname(editUserDTO.name().getSurname());
+        userToEdit.getName().setName(editUserDTO.name().getName());
+        userToEdit.getName().setPatronymic(editUserDTO.name().getPatronymic());
+
+        return userRepository.save(userToEdit);
     }
 }

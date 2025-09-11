@@ -1,0 +1,269 @@
+.container {
+    width: 100%;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.backButton {
+    color: #3498db;
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: color 0.2s ease;
+}
+
+.backButton:hover {
+    color: #2980b9;
+}
+
+.eventStatus {
+    flex-shrink: 0;
+}
+
+.upcomingBadge {
+    background-color: #27ae60;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.pastBadge {
+    background-color: #95a5a6;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.eventCard {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.eventHeader {
+    margin-bottom: 32px;
+}
+
+.eventTitle {
+    margin: 0;
+    font-size: 32px;
+    color: #2c3e50;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.eventMeta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+    padding: 24px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.metaItem {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.icon {
+    font-size: 20px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.metaItem strong {
+    display: block;
+    font-size: 14px;
+    color: #2c3e50;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.metaItem p {
+    margin: 0;
+    font-size: 16px;
+    color: #555;
+    line-height: 1.4;
+}
+
+.description {
+    margin-bottom: 32px;
+}
+
+.description h3 {
+    margin: 0 0 16px 0;
+    font-size: 20px;
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.description p {
+    margin: 0;
+    font-size: 16px;
+    color: #555;
+    line-height: 1.6;
+}
+
+.registrations {
+    margin-bottom: 32px;
+}
+
+.registrations h3 {
+    margin: 0 0 20px 0;
+    font-size: 20px;
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.noRegistrations {
+    color: #666;
+    font-style: italic;
+    margin: 0;
+}
+
+.participantsList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.participant {
+    background-color: #f8f9fa;
+    padding: 16px;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+}
+
+.participantInfo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.participantInfo strong {
+    color: #2c3e50;
+    font-size: 16px;
+}
+
+.participantGroup {
+    background-color: #3498db;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.registrationDate {
+    font-size: 14px;
+    color: #666;
+}
+
+.actions {
+    display: flex;
+    justify-content: center;
+    padding-top: 24px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.registerButton {
+    background-color: #27ae60;
+    color: white;
+    border: none;
+    padding: 14px 32px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    min-width: 200px;
+}
+
+.registerButton:hover:not(:disabled) {
+    background-color: #229954;
+}
+
+.unregisterButton {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: 14px 32px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    min-width: 200px;
+}
+
+.unregisterButton:hover:not(:disabled) {
+    background-color: #c0392b;
+}
+
+.registerButton:disabled,
+.unregisterButton:disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+}
+
+.error {
+    background-color: #fee;
+    color: #e74c3c;
+    padding: 16px;
+    border-radius: 6px;
+    border: 1px solid #f5c6cb;
+    margin-bottom: 24px;
+    text-align: center;
+    font-size: 16px;
+}
+
+@media (max-width: 768px) {
+    .eventCard {
+        padding: 24px 16px;
+    }
+    
+    .eventTitle {
+        font-size: 24px;
+    }
+    
+    .eventMeta {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        padding: 16px;
+    }
+    
+    .header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .participantsList {
+        gap: 8px;
+    }
+    
+    .participant {
+        padding: 12px;
+    }
+}

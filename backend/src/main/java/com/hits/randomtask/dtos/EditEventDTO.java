@@ -1,5 +1,6 @@
 package com.hits.randomtask.dtos;
 
+import com.hits.randomtask.validators.ValidEventDates;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -7,6 +8,7 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
 
+@ValidEventDates
 public record EditEventDTO(
 
         @NotNull(message = "Event id must be present")
@@ -22,6 +24,9 @@ public record EditEventDTO(
 
         @NotNull
         LocalDateTime date,
+
+        @NotNull
+        LocalDateTime registrationDeadline,
 
         @NotEmpty(message = "Event location must not be empty")
         String location

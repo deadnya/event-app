@@ -9,5 +9,6 @@ public record EventDTO(
         String description,
         String location,
         LocalDateTime date,
+        LocalDateTime registrationDeadline,
         List<EventRegistrationDTO> registrations
 ) { }

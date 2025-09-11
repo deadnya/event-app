@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from .base_handler import BaseHandler
-from ..config import MANAGER_ROLE, CREATE_EVENT_NAME, CREATE_EVENT_DESC, CREATE_EVENT_DATE, CREATE_EVENT_LOCATION, EDIT_EVENT_SELECT, EDIT_EVENT_FIELD, EDIT_EVENT_VALUE
+from ..config import MANAGER_ROLE, CREATE_EVENT_NAME, CREATE_EVENT_DESC, CREATE_EVENT_DATE, CREATE_EVENT_DEADLINE, CREATE_EVENT_LOCATION, EDIT_EVENT_SELECT, EDIT_EVENT_FIELD, EDIT_EVENT_VALUE, DECLINE_USER_REASON
 from ..utils.logger import logger
 from datetime import datetime, timedelta
 import re
@@ -13,6 +13,7 @@ class ManagerHandler(BaseHandler):
         super().__init__()
         self.event_creation_data = {}
         self.event_editing_data = {}
+        self.user_decline_data = {}
     
     async def manager_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await self.log_command_usage(update, "manager_help")
@@ -25,14 +26,19 @@ class ManagerHandler(BaseHandler):
             "🏢 <b>Company Events</b> - View your company's events\n"
             "➕ <b>Create Event</b> - Create a new event\n"
             "📊 <b>Event Stats</b> - View event statistics\n"
+            "👥 <b>Pending Users</b> - View and manage pending users\n"
             "❓ <b>Manager Help</b> - Show this help message\n\n"
             "<b>Text Commands:</b>\n"
             "/edit_event - Edit an existing event\n"
             "/delete_event &lt;event_id&gt; - Delete an event\n"
-            "/event_participants &lt;event_id&gt; - View event participants\n\n"
+            "/event_participants &lt;event_id&gt; - View event participants\n"
+            "/pending_users - View pending user applications\n"
+            "/approve_user &lt;user_id&gt; - Approve a pending user\n"
+            "/decline_user &lt;user_id&gt; [reason] - Decline a pending user\n\n"
             "<b>Tips:</b>\n"
             "• Use the buttons above for quick access\n"
             "• Event IDs can be found in the Company Events list\n"
+            "• User IDs can be found in the Pending Users list\n"
             "• All dates should be in DD/MM/YYYY HH:MM format"
         )
         await update.message.reply_text(help_message, parse_mode='HTML')
@@ -209,6 +215,62 @@ class ManagerHandler(BaseHandler):
         
         await update.message.reply_text(
             f"✅ Event date: <b>{date_str}</b>\n\n"
+            "Now please enter the <b>registration deadline</b> in the format:\n"
+            "<code>DD/MM/YYYY HH:MM</code>\n\n"
+            "⚠️ The deadline must be before or equal to the event date.\n"
+            "Example: <code>24/12/2024 23:59</code>",
+            parse_mode='HTML'
+        )
+        return CREATE_EVENT_DEADLINE
+
+    async def get_event_deadline(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        deadline_str = update.message.text.strip()
+        
+        if not hasattr(self, 'event_creation_data') or user_id not in self.event_creation_data:
+            await update.message.reply_text(
+                "❌ Session expired. Please start over with /create_event"
+            )
+            return ConversationHandler.END
+        
+        date_pattern = r'^\d{2}/\d{2}/\d{4} \d{2}:\d{2}$'
+        if not re.match(date_pattern, deadline_str):
+            await update.message.reply_text(
+                "❌ Invalid deadline format. Please use: <code>DD/MM/YYYY HH:MM</code>\n"
+                "Example: <code>24/12/2024 23:59</code>",
+                parse_mode='HTML'
+            )
+            return CREATE_EVENT_DEADLINE
+        
+        try:
+            deadline = datetime.strptime(deadline_str, '%d/%m/%Y %H:%M')
+            event_date = datetime.fromisoformat(self.event_creation_data[user_id]['date'])
+            
+            if deadline > event_date:
+                await update.message.reply_text(
+                    "❌ Registration deadline must be before or equal to the event date.\n"
+                    "Please enter a deadline before the event:"
+                )
+                return CREATE_EVENT_DEADLINE
+            
+            if deadline <= datetime.now():
+                await update.message.reply_text(
+                    "❌ Registration deadline must be in the future.\n"
+                    "Please enter a future date and time:"
+                )
+                return CREATE_EVENT_DEADLINE
+            
+            self.event_creation_data[user_id]['registrationDeadline'] = deadline.isoformat()
+            
+        except ValueError:
+            await update.message.reply_text(
+                "❌ Invalid deadline. Please enter a valid date in format: <code>DD/MM/YYYY HH:MM</code>",
+                parse_mode='HTML'
+            )
+            return CREATE_EVENT_DEADLINE
+        
+        await update.message.reply_text(
+            f"✅ Registration deadline: <b>{deadline_str}</b>\n\n"
             "Finally, please enter the <b>event location</b>:",
             parse_mode='HTML'
         )
@@ -233,6 +295,7 @@ class ManagerHandler(BaseHandler):
             f"🎯 <b>Name:</b> {event_data['name']}\n"
             f"📝 <b>Description:</b> {event_data.get('description', 'None')}\n"
             f"📅 <b>Date:</b> {datetime.fromisoformat(event_data['date']).strftime('%d/%m/%Y %H:%M')}\n"
+            f"⏰ <b>Registration Deadline:</b> {datetime.fromisoformat(event_data['registrationDeadline']).strftime('%d/%m/%Y %H:%M')}\n"
             f"📍 <b>Location:</b> {event_data['location']}\n\n"
             "Creating event..."
         )
@@ -382,6 +445,14 @@ class ManagerHandler(BaseHandler):
                 parse_mode='HTML'
             )
             
+        elif query.data.startswith("approve_user_"):
+            user_id_to_approve = query.data.split("_", 2)[2]
+            await self._approve_user_inline(query, user_id_to_approve, user_id)
+            
+        elif query.data.startswith("decline_user_"):
+            user_id_to_decline = query.data.split("_", 2)[2]
+            return await self.start_decline_user_with_reason(update, context, user_id_to_decline)
+            
     async def _show_event_participants_inline(self, query, event_id, user_id):
         participants = self.api_service.get_event_participants(user_id, event_id)
         
@@ -422,7 +493,7 @@ class ManagerHandler(BaseHandler):
             f"Event ID: <code>{event_id}</code>\n\n"
             "To edit this event, please use the command:\n"
             f"<code>/edit_event {event_id}</code>\n\n"
-            "This will start the interactive editing process where you can modify the event name, description, date, and location.",
+            "This will start the interactive editing process where you can modify the event name, description, date, registration deadline, and location.",
             parse_mode='HTML'
         )
     
@@ -461,6 +532,24 @@ class ManagerHandler(BaseHandler):
                 parse_mode='HTML'
             )
     
+    async def _approve_user_inline(self, query, user_id_to_approve, user_id):
+        success, message = self.api_service.approve_user(user_id, user_id_to_approve)
+        
+        if success:
+            await query.edit_message_text(
+                f"✅ <b>User Approved!</b>\n\n"
+                f"User ID: <code>{user_id_to_approve}</code>\n"
+                f"The user has been successfully approved and can now access the system.",
+                parse_mode='HTML'
+            )
+        else:
+            await query.edit_message_text(
+                f"❌ <b>Approval Failed</b>\n\n"
+                f"Failed to approve user: {message}\n"
+                f"Please try again later.",
+                parse_mode='HTML'
+            )
+    
     async def edit_event(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await self.log_command_usage(update, "edit_event")
         
@@ -469,13 +558,11 @@ class ManagerHandler(BaseHandler):
         
         user_id = update.effective_user.id
         
-        # Get command parts to see if event ID was provided
         command_parts = update.message.text.split()
         if len(command_parts) > 1:
             event_id = command_parts[1]
             return await self.start_edit_event_with_id(update, context, event_id)
         
-        # No event ID provided, show list of events to select from
         events = self.api_service.get_company_events(user_id)
         
         if events is None:
@@ -491,16 +578,14 @@ class ManagerHandler(BaseHandler):
             )
             return ConversationHandler.END
         
-        # Initialize editing data
         if not hasattr(self, 'event_editing_data'):
             self.event_editing_data = {}
         self.event_editing_data[user_id] = {}
         
-        # Show events for selection
         events_text = "✏️ <b>Select Event to Edit:</b>\n\n"
         keyboard = []
         
-        for event in events[:10]:  # Limit to 10 events
+        for event in events[:10]:
             date_str = event.get('date', 'N/A')
             if date_str != 'N/A':
                 try:
@@ -590,9 +675,9 @@ class ManagerHandler(BaseHandler):
             await self.cancel_event_editing(update, context)
             return ConversationHandler.END
         
-        if field not in ['name', 'description', 'date', 'location']:
+        if field not in ['name', 'description', 'date', 'deadline', 'location']:
             await update.message.reply_text(
-                "❌ Invalid field. Please choose: <b>name</b>, <b>description</b>, <b>date</b>, <b>location</b>, or <b>cancel</b>",
+                "❌ Invalid field. Please choose: <b>name</b>, <b>description</b>, <b>date</b>, <b>deadline</b>, <b>location</b>, or <b>cancel</b>",
                 parse_mode='HTML'
             )
             return EDIT_EVENT_FIELD
@@ -629,6 +714,22 @@ class ManagerHandler(BaseHandler):
                 f"Current date: <b>{date_str}</b>\n\n"
                 f"Please enter the new date in format: <code>DD/MM/YYYY HH:MM</code>\n"
                 f"Example: <code>25/12/2024 14:30</code>",
+                parse_mode='HTML'
+            )
+        elif field == 'deadline':
+            deadline_str = current_event.get('registrationDeadline', 'N/A')
+            if deadline_str != 'N/A':
+                try:
+                    deadline = datetime.fromisoformat(deadline_str.replace('Z', '+00:00'))
+                    deadline_str = deadline.strftime('%d/%m/%Y %H:%M')
+                except:
+                    pass
+            await update.message.reply_text(
+                f"⏰ <b>Edit Registration Deadline</b>\n\n"
+                f"Current deadline: <b>{deadline_str}</b>\n\n"
+                f"Please enter the new registration deadline in format: <code>DD/MM/YYYY HH:MM</code>\n"
+                f"⚠️ Deadline must be before or equal to the event date.\n"
+                f"Example: <code>24/12/2024 23:59</code>",
                 parse_mode='HTML'
             )
         elif field == 'location':
@@ -702,6 +803,40 @@ class ManagerHandler(BaseHandler):
                 )
                 return EDIT_EVENT_VALUE
                 
+        elif field == 'deadline':
+            date_pattern = r'^\d{2}/\d{2}/\d{4} \d{2}:\d{2}$'
+            if not re.match(date_pattern, new_value):
+                await update.message.reply_text(
+                    "❌ Invalid deadline format. Please use: <code>DD/MM/YYYY HH:MM</code>\n"
+                    "Example: <code>24/12/2024 23:59</code>",
+                    parse_mode='HTML'
+                )
+                return EDIT_EVENT_VALUE
+            
+            try:
+                deadline = datetime.strptime(new_value, '%d/%m/%Y %H:%M')
+                event_date = datetime.fromisoformat(current_event['date'])
+                
+                if deadline > event_date:
+                    await update.message.reply_text(
+                        "❌ Registration deadline must be before or equal to the event date. Please enter an earlier deadline:"
+                    )
+                    return EDIT_EVENT_VALUE
+                
+                if deadline <= datetime.now():
+                    await update.message.reply_text(
+                        "❌ Registration deadline must be in the future. Please enter a future date:"
+                    )
+                    return EDIT_EVENT_VALUE
+                    
+                current_event['registrationDeadline'] = deadline.isoformat()
+            except ValueError:
+                await update.message.reply_text(
+                    "❌ Invalid deadline. Please enter a valid date in format: <code>DD/MM/YYYY HH:MM</code>",
+                    parse_mode='HTML'
+                )
+                return EDIT_EVENT_VALUE
+                
         elif field == 'location':
             if not new_value:
                 await update.message.reply_text(
@@ -715,14 +850,22 @@ class ManagerHandler(BaseHandler):
             'name': current_event['name'],
             'description': current_event.get('description'),
             'date': current_event['date'],
+            'registrationDeadline': current_event['registrationDeadline'],
             'location': current_event['location']
         }
         
         date_str = current_event.get('date', 'N/A')
+        deadline_str = current_event.get('registrationDeadline', 'N/A')
         if date_str != 'N/A':
             try:
                 event_date = datetime.fromisoformat(date_str)
                 date_str = event_date.strftime('%d/%m/%Y %H:%M')
+            except:
+                pass
+        if deadline_str != 'N/A':
+            try:
+                deadline = datetime.fromisoformat(deadline_str)
+                deadline_str = deadline.strftime('%d/%m/%Y %H:%M')
             except:
                 pass
         
@@ -731,6 +874,7 @@ class ManagerHandler(BaseHandler):
             f"🎯 <b>Name:</b> {edit_data['name']}\n"
             f"📝 <b>Description:</b> {edit_data.get('description') or 'None'}\n"
             f"📅 <b>Date:</b> {date_str}\n"
+            f"⏰ <b>Registration Deadline:</b> {deadline_str}\n"
             f"📍 <b>Location:</b> {edit_data['location']}\n\n"
             "Saving changes..."
         )
@@ -840,6 +984,221 @@ class ManagerHandler(BaseHandler):
             )
         
         await update.message.reply_text(participants_text, parse_mode='HTML')
+
+    async def pending_users(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await self.log_command_usage(update, "pending_users")
+        
+        if not await self.require_role(update, MANAGER_ROLE):
+            return
+        
+        user_id = update.effective_user.id
+        pending_users = self.api_service.get_pending_users(user_id)
+        
+        if pending_users is None:
+            await update.message.reply_text(
+                "❌ Failed to fetch pending users. Please try again later."
+            )
+            return
+        
+        if not pending_users:
+            await update.message.reply_text(
+                "✅ No pending user applications for your company.\n"
+                "All users have been processed!"
+            )
+            return
+        
+        users_text = f"👥 <b>Pending User Applications ({len(pending_users)}):</b>\n\n"
+        keyboard = []
+        
+        for i, user in enumerate(pending_users[:10], 1):
+            name_obj = user.get('name', {})
+            if isinstance(name_obj, dict):
+                full_name = f"{name_obj.get('surname', '')} {name_obj.get('name', '')} {name_obj.get('patronymic', '') or ''}".strip()
+            else:
+                full_name = str(name_obj) if name_obj else 'N/A'
+            
+            users_text += (
+                f"{i}. <b>{full_name}</b>\n"
+                f"📧 {user.get('email', 'N/A')}\n"
+                f"👤 Role: {user.get('role', 'N/A')}\n"
+                f"🏫 Group: {user.get('group', 'N/A')}\n"
+                f"🆔 <code>{user.get('id', 'N/A')}</code>\n\n"
+            )
+            
+            keyboard.append([
+                InlineKeyboardButton("✅ Approve", callback_data=f"approve_user_{user.get('id')}"),
+                InlineKeyboardButton("❌ Decline", callback_data=f"decline_user_{user.get('id')}")
+            ])
+        
+        if len(pending_users) > 10:
+            users_text += f"... and {len(pending_users) - 10} more users"
+        
+        users_text += (
+            "\n<b>Actions:</b>\n"
+            "• Use buttons above for quick approval/decline\n"
+            "• Use /approve_user &lt;user_id&gt; to approve\n"
+            "• Use /decline_user &lt;user_id&gt; [reason] to decline"
+        )
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(users_text, parse_mode='HTML', reply_markup=reply_markup)
+
+    async def approve_user_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await self.log_command_usage(update, "approve_user")
+        
+        if not await self.require_role(update, MANAGER_ROLE):
+            return
+        
+        command_parts = update.message.text.split()
+        if len(command_parts) < 2:
+            await update.message.reply_text(
+                "❌ Please provide a user ID.\n"
+                "Usage: <code>/approve_user &lt;user_id&gt;</code>\n\n"
+                "You can find user IDs in the pending users list.",
+                parse_mode='HTML'
+            )
+            return
+        
+        user_id_to_approve = command_parts[1]
+        user_id = update.effective_user.id
+        
+        success, message = self.api_service.approve_user(user_id, user_id_to_approve)
+        
+        if success:
+            await update.message.reply_text(
+                f"✅ <b>User Approved!</b>\n\n"
+                f"User ID: <code>{user_id_to_approve}</code>\n"
+                f"The user has been successfully approved and can now access the system.",
+                parse_mode='HTML'
+            )
+        else:
+            await update.message.reply_text(
+                f"❌ <b>Approval Failed</b>\n\n"
+                f"Failed to approve user: {message}\n"
+                f"Please check the user ID and try again.",
+                parse_mode='HTML'
+            )
+
+    async def decline_user_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await self.log_command_usage(update, "decline_user")
+        
+        if not await self.require_role(update, MANAGER_ROLE):
+            return ConversationHandler.END
+        
+        command_parts = update.message.text.split(maxsplit=2)
+        if len(command_parts) < 2:
+            await update.message.reply_text(
+                "❌ Please provide a user ID.\n"
+                "Usage: <code>/decline_user &lt;user_id&gt; [reason]</code>\n\n"
+                "You can find user IDs in the pending users list.",
+                parse_mode='HTML'
+            )
+            return ConversationHandler.END
+        
+        user_id_to_decline = command_parts[1]
+        reason = command_parts[2] if len(command_parts) > 2 else None
+        
+        if reason and len(reason) > 255:
+            await update.message.reply_text(
+                "❌ Decline reason is too long (maximum 255 characters).\n"
+                "Please provide a shorter reason or use the command without reason."
+            )
+            return ConversationHandler.END
+        
+        user_id = update.effective_user.id
+        success, message = self.api_service.decline_user(user_id, user_id_to_decline, reason)
+        
+        if success:
+            reason_text = f"Reason: {reason}" if reason else "No reason provided"
+            await update.message.reply_text(
+                f"❌ <b>User Declined</b>\n\n"
+                f"User ID: <code>{user_id_to_decline}</code>\n"
+                f"{reason_text}\n\n"
+                f"The user has been declined and notified.",
+                parse_mode='HTML'
+            )
+        else:
+            await update.message.reply_text(
+                f"❌ <b>Decline Failed</b>\n\n"
+                f"Failed to decline user: {message}\n"
+                f"Please check the user ID and try again.",
+                parse_mode='HTML'
+            )
+        
+        return ConversationHandler.END
+
+    async def start_decline_user_with_reason(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id_to_decline: str):
+        user_id = update.effective_user.id
+        
+        if not hasattr(self, 'user_decline_data'):
+            self.user_decline_data = {}
+        self.user_decline_data[user_id] = {'user_id_to_decline': user_id_to_decline}
+        
+        await update.callback_query.edit_message_text(
+            f"❌ <b>Decline User</b>\n\n"
+            f"User ID: <code>{user_id_to_decline}</code>\n\n"
+            f"Please provide a reason for declining this user (max 255 characters):\n"
+            f"Or send 'skip' to decline without a reason.",
+            parse_mode='HTML'
+        )
+        
+        return DECLINE_USER_REASON
+
+    async def get_decline_reason(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        reason = update.message.text.strip()
+        
+        if not hasattr(self, 'user_decline_data') or user_id not in self.user_decline_data:
+            await update.message.reply_text(
+                "❌ Session expired. Please use the decline button again."
+            )
+            return ConversationHandler.END
+        
+        user_id_to_decline = self.user_decline_data[user_id]['user_id_to_decline']
+        
+        if reason.lower() == 'skip':
+            reason = None
+        elif len(reason) > 255:
+            await update.message.reply_text(
+                "❌ Reason is too long (maximum 255 characters).\n"
+                "Please provide a shorter reason or send 'skip':"
+            )
+            return DECLINE_USER_REASON
+        
+        success, message = self.api_service.decline_user(user_id, user_id_to_decline, reason)
+        
+        if success:
+            reason_text = f"Reason: {reason}" if reason else "No reason provided"
+            await update.message.reply_text(
+                f"❌ <b>User Declined</b>\n\n"
+                f"User ID: <code>{user_id_to_decline}</code>\n"
+                f"{reason_text}\n\n"
+                f"The user has been declined and notified.",
+                parse_mode='HTML'
+            )
+        else:
+            await update.message.reply_text(
+                f"❌ <b>Decline Failed</b>\n\n"
+                f"Failed to decline user: {message}",
+                parse_mode='HTML'
+            )
+        
+        if user_id in self.user_decline_data:
+            del self.user_decline_data[user_id]
+        
+        return ConversationHandler.END
+
+    async def cancel_decline_user(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        
+        if hasattr(self, 'user_decline_data') and user_id in self.user_decline_data:
+            del self.user_decline_data[user_id]
+        
+        await update.message.reply_text(
+            "❌ User decline cancelled.\n"
+            "Use the pending users list to try again."
+        )
+        return ConversationHandler.END
 
     async def cancel_event_creation(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         logger.info(f"User {update.effective_user.id} cancelled event creation")

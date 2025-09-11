@@ -1,5 +1,6 @@
 package com.hits.randomtask.services;
 
+import com.hits.randomtask.dtos.EditUserDTO;
 import com.hits.randomtask.dtos.TelegramRegistrationDTO;
 import com.hits.randomtask.entities.User;
 
@@ -9,4 +10,5 @@ public interface UserService {
     User findByTelegramId(Long telegramId);
     User registerTelegramUser(TelegramRegistrationDTO registrationDTO);
     User findByTelegramChatId(Long telegramChatId);
+    User editUser(EditUserDTO editUserDTO, User user);
 }

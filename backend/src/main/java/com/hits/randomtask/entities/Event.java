@@ -29,6 +29,9 @@ public class Event {
     @Column(name = "date", nullable = false)
     private LocalDateTime date;
 
+    @Column(name = "registration_deadline", nullable = false)
+    private LocalDateTime registrationDeadline;
+
     @Column(name = "location", nullable = false)
     private String location;
 

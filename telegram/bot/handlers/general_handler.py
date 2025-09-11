@@ -14,12 +14,13 @@ class GeneralHandler(BaseHandler):
         elif role == "MANAGER":
             keyboard = [
                 [KeyboardButton("/my_company_events"), KeyboardButton("/create_event")],
-                [KeyboardButton("/event_stats"), KeyboardButton("/manager_help")]
+                [KeyboardButton("/event_stats"), KeyboardButton("/pending_users")],
+                [KeyboardButton("/manager_help")]
             ]
         else:
             keyboard = [
                 [KeyboardButton("/register"), KeyboardButton("/help")],
-                [KeyboardButton("/status"), KeyboardButton("/backend_health")]
+                [KeyboardButton("/status")]
             ]
         
         return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
@@ -76,8 +77,7 @@ class GeneralHandler(BaseHandler):
             "/start - Welcome message and role keyboard\n"
             "/help - Show this help message\n"
             "/status - Check your registration status\n"
-            "/register - Register your account\n"
-            "/backend_health - Check backend system health\n\n"
+            "/register - Register your account\n\n"
         )
         
         if is_authenticated:
@@ -141,13 +141,6 @@ class GeneralHandler(BaseHandler):
                 await update.message.reply_text("⏳ Your account is pending admin approval.")
         else:
             await update.message.reply_text("❌ You are not registered. Use /register to create an account.")
-    
-    async def backend_health_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await self.log_command_usage(update, "backend_health")
-        
-        is_healthy, message = self.api_service.check_backend_health()
-        status_emoji = "✅" if is_healthy else "❌"
-        await update.message.reply_text(f"{status_emoji} {message}")
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_message = update.message.text

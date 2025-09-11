@@ -47,6 +47,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             String token = authHeader.substring(7);
+            
+            if (token == null || token.trim().isEmpty()) {
+                logger.debug("Empty or whitespace-only token found, skipping JWT processing");
+                filterChain.doFilter(request, response);
+                return;
+            }
+            
             logger.info("Processing JWT token: {}...", token.substring(0, Math.min(50, token.length())));
             
             String username = jwtTokenService.extractUsername(token);

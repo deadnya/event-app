@@ -107,6 +107,7 @@ public class EventServiceImpl implements EventService {
         event.setName(editEventDTO.name());
         event.setDescription(editEventDTO.description());
         event.setDate(editEventDTO.date());
+        event.setRegistrationDeadline(editEventDTO.registrationDeadline());
         event.setLocation(editEventDTO.location());
 
         event = eventRepository.save(event);

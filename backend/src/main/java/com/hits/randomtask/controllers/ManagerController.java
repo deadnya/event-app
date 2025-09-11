@@ -1,9 +1,8 @@
 package com.hits.randomtask.controllers;
 
-import com.hits.randomtask.dtos.CreateEventDTO;
-import com.hits.randomtask.dtos.EditEventDTO;
-import com.hits.randomtask.dtos.EventDTO;
+import com.hits.randomtask.dtos.*;
 import com.hits.randomtask.entities.User;
+import com.hits.randomtask.services.AdminService;
 import com.hits.randomtask.services.EventService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,9 +15,11 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/manager")
 @RequiredArgsConstructor
+@CrossOrigin
 public class ManagerController {
 
     private final EventService eventService;
+    private final AdminService adminService; //to refactor later
 
     @GetMapping("/events")
     public ResponseEntity<List<EventDTO>> getCompanyEvents(@AuthenticationPrincipal User user) {
@@ -56,5 +57,24 @@ public class ManagerController {
     ) {
         eventService.deleteEvent(id, user);
         return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/approve-user/{userId}")
+    public ResponseEntity<Void> approveUser(@PathVariable String userId) {
+        adminService.editUserApprovementStatus(userId, true, null);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/decline-user/{userId}")
+    public ResponseEntity<Void> declineUser(@PathVariable String userId, @Valid @RequestBody DeclineReasonDTO declineReasonDTO) {
+        adminService.editUserApprovementStatus(userId, false, declineReasonDTO);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/users/pending")
+    public ResponseEntity<List<UserDTO>> getPendingUsersOfMyCompany(
+            @AuthenticationPrincipal User user
+    ) {
+        return ResponseEntity.ok(adminService.getPendingUsersOfMyCompany(user));
     }
 }
