@@ -73,6 +73,7 @@ class ManagerHandler(BaseHandler):
         keyboard = []
         
         for event in events[:10]:
+            logger.info(event)
             date_str = event.get('date', 'N/A')
             if date_str != 'N/A':
                 try:
@@ -467,17 +468,30 @@ class ManagerHandler(BaseHandler):
             return
         
         participants_text = f"👥 <b>Event Participants ({len(participants)}):</b>\n\n"
-        for i, participant in enumerate(participants[:20], 1):
+        for i, registration in enumerate(participants[:20], 1):
+            user = registration.get('user', {})
+            name_obj = user.get('name', {})
+            
+            if isinstance(name_obj, dict):
+                full_name = name_obj.get('fullName') or f"{name_obj.get('surname', '')} {name_obj.get('name', '')} {name_obj.get('patronymic', '') or ''}".strip()
+            else:
+                full_name = str(name_obj) if name_obj else 'N/A'
+            
+            email = user.get('email', 'N/A')
+            
+            roles = user.get('roles', [])
+            role = roles[0].get('role', 'N/A') if roles else user.get('role', 'N/A')
+            
             participants_text += (
-                f"{i}. <b>{participant.get('fullName', 'N/A')}</b>\n"
-                f"📧 {participant.get('email', 'N/A')}\n"
-                f"👤 {participant.get('role', 'N/A')}"
+                f"{i}. <b>{full_name}</b>\n"
+                f"📧 {email}\n"
+                f"👤 {role}"
             )
             
-            if participant.get('group'):
-                participants_text += f" - Group: {participant['group']}\n"
-            elif participant.get('company'):
-                participants_text += f" - Company: {participant['company']}\n"
+            if user.get('group'):
+                participants_text += f" - Group: {user['group']}\n"
+            elif user.get('company'):
+                participants_text += f" - Company: {user['company']}\n"
             else:
                 participants_text += "\n"
             participants_text += "\n"
@@ -970,17 +984,32 @@ class ManagerHandler(BaseHandler):
         
         if not participants:
             await update.message.reply_text(
-                "� No participants registered for this event yet."
+                "👥 No participants registered for this event yet."
             )
             return
         
         participants_text = f"👥 <b>Event Participants ({len(participants)}):</b>\n\n"
-        for i, participant in enumerate(participants, 1):
+        for i, registration in enumerate(participants, 1):
+            user = registration.get('user', {})
+            name_obj = user.get('name', {})
+            
+            if isinstance(name_obj, dict):
+                full_name = name_obj.get('fullName') or f"{name_obj.get('surname', '')} {name_obj.get('name', '')} {name_obj.get('patronymic', '') or ''}".strip()
+            else:
+                full_name = str(name_obj) if name_obj else 'N/A'
+            
+            email = user.get('email', 'N/A')
+            
+            roles = user.get('roles', [])
+            role = roles[0].get('role', 'N/A') if roles else user.get('role', 'N/A')
+            
+            group_company = user.get('group') or user.get('company', 'N/A')
+            
             participants_text += (
-                f"{i}. <b>{participant.get('fullName', 'N/A')}</b>\n"
-                f"📧 Email: {participant.get('email', 'N/A')}\n"
-                f"👤 Role: {participant.get('role', 'N/A')}\n"
-                f"🏫 Group/Company: {participant.get('group') or participant.get('company', 'N/A')}\n\n"
+                f"{i}. <b>{full_name}</b>\n"
+                f"📧 Email: {email}\n"
+                f"👤 Role: {role}\n"
+                f"🏫 Group/Company: {group_company}\n\n"
             )
         
         await update.message.reply_text(participants_text, parse_mode='HTML')

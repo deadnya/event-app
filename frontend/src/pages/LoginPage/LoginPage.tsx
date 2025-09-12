@@ -66,14 +66,25 @@ const LoginPage: React.FC = observer(() => {
 
         const timeout = setTimeout(() => {
             setShowFallback(true);
-        }, 5000);
+        }, 10000);
 
         script.onload = () => {
             clearTimeout(timeout);
+            console.log('Telegram widget script loaded successfully');
+            
+            setTimeout(() => {
+                const widgetContainer = document.getElementById('telegram-login-widget');
+                const iframe = widgetContainer?.querySelector('iframe');
+                if (!iframe) {
+                    console.warn('Telegram widget iframe not found, showing fallback');
+                    setShowFallback(true);
+                }
+            }, 2000);
         };
 
         script.onerror = () => {
             clearTimeout(timeout);
+            console.error('Failed to load Telegram widget script');
             const widgetContainer = document.getElementById('telegram-login-widget');
             if (widgetContainer) {
                 widgetContainer.innerHTML = `
